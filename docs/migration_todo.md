@@ -18,17 +18,19 @@ land; keep the design doc as the source of truth. **D2/D3/D4/D5 confirmed; D1 de
 - [ ] Extend firmware `sta` to also emit `servo.tgt` + `servo.mode` (one `respKV` pair + native
       test) — needed before Phase 2 fast loop is finalized. **Tracked in the firmware repo.**
 
-## Phase 1 — Protocol client (driver replacement core)
-- [ ] `dro/comms/protocol_client.py`: `serial.Serial` owner, framed request/response
-- [ ] Response reader: read until blank line, parse `key=value`, verify `crc=HH`
-- [ ] RS-485 turnaround-glitch tolerance + retry (port from `dro_update.py`)
-- [ ] `get` / `set` (with array `idx`) / `settings` / `sta` / `version` / `help`
-- [ ] `save` / `load` (board flash)
-- [ ] Optional `*HH` request checksum (off by default)
-- [ ] `MAX_ERROR_COUNT` resilience / connected-state semantics
-- [ ] Bus serialization (D3): asyncio lock-guarded command queue; never block the Kivy loop
-- [ ] Unit tests against captured wire frames (mock serial) — mirror firmware `test_protocol`
-- [ ] Keep `dro/utils/ctype_calc.py`; delete the Modbus parser path
+## Phase 1 — Protocol client (driver replacement core) — done 2026-06-29, HW-verified
+- [x] `dro/comms/protocol_client.py`: `serial.Serial` owner, framed request/response
+- [x] Response reader: read until blank line, parse `key=value`, verify `crc=HH` (`parse_response`)
+- [x] RS-485 turnaround-glitch tolerance + retry (glitch heuristic on unknown command/variable + crc fail)
+- [x] `get` / `set` (with array `idx`) / `settings` / `sta` / `version` (`help` via `command()`)
+- [x] `save` / `load` (board flash)
+- [x] Optional `*HH` request checksum (`request_checksum` flag; HW-validated end-to-end)
+- [x] `MAX_ERROR_COUNT` resilience / connected-state semantics
+- [x] Bus serialization (D3): asyncio lock-guarded queue + single-thread executor; never blocks Kivy
+- [x] Unit tests (15) against a firmware-accurate `FakeSerial` — crc/retry/error/link-state
+- [x] **HW-verified** against the board over `/dev/ttyACM2`: version/sta/get/set/settings/RO-error,
+      checksummed requests, read+write round-trips, restore. All CRC-correct, link stayed up.
+- [ ] Keep `dro/utils/ctype_calc.py` (port the encoder-wrap helper in Phase 2)
 
 ## Phase 2 — Dispatchers re-pointed to the protocol (needs Phase 0b firmware `sta`)
 - [ ] `board.py`: `ProtocolClient` instead of `ConnectionManager`; `update` loop polls `sta`
