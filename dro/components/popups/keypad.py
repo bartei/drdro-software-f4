@@ -128,9 +128,7 @@ class Keypad(Popup):
         self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        print(f'Keycode: {keycode}, text: {text}, modifiers: {modifiers}')
-        # # Update the label to show which key was pressed
-        # log.info(f'Last key pressed: {text}')
+        log.debug("keypad key: keycode=%s text=%s modifiers=%s", keycode, text, modifiers)
         if text == ".":
             self.dot_key()
         if text == "-":

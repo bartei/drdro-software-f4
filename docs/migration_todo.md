@@ -88,11 +88,17 @@ land; keep the design doc as the source of truth. **D2/D3/D4/D5 confirmed; D1 de
       registered in manager + "Firmware" setup button
 - [x] **HW-verified**: flashed a local `.bin` into the inactive bank over RS-485 (YMODEM, 49592 B),
       set active, booted — version + active bank updated (1→0). UI rendered with live data.
-- [ ] GitHub fetch verified on a networked machine (code done; sandbox has no network/CA certs)
+- [x] GitHub fetch verified end-to-end on the desktop: refresh→download→flash→boot installed the
+      real `v0.4.3` release (TLS via certifi so it works on NixOS); board ran v0.4.3 after.
 - [ ] Optional: expose `rollback` / `erase` / `crc` bootloader commands in the UI (have the plumbing)
 
-## Phase 6 — Release & polish
-- [ ] CI (GitHub Actions) build + tests; `python-semantic-release` on main/dev
-- [ ] Sentry init parity; logging parity (kivy.logger)
-- [ ] Final cleanup of RCP dead code not carried over (beep, TraceOutput — see RCP todo)
-- [ ] User-facing notes for the Modbus→protocol switch
+## Phase 6 — Release & polish — done 2026-06-30
+- [x] CI (GitHub Actions): `ci.yml` (uv + pytest) + `release.yml` (python-semantic-release);
+      repo pushed to `bartei/drdro-software-f4`; releases cutting (software v1.1.0, firmware v0.4.4)
+- [x] **Sentry removed** (per request) — dropped the init + `sentry-sdk` dep (it even pointed at
+      RCP's DSN); logging stays on kivy.logger (comms layer intentionally stdlib)
+- [x] RCP dead-code cleanup: fixed the `TraceOutput`/`exit_stack` latent bug (Ctrl+T now a safe
+      start/stop trace toggle); demoted a stray keypad `print` to `log.debug`
+- [x] User-facing Modbus→protocol migration notes in the README
+- [x] GPL-3.0-or-later relicense (both repos)
+- [ ] Optional later: implement `beep()` (currently a no-op stub) using the bundled sounds

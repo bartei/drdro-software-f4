@@ -1,6 +1,5 @@
 import os
 
-import sentry_sdk
 from kivy.app import App
 from kivy.config import Config
 from kivy.resources import resource_add_path
@@ -110,14 +109,6 @@ class MainApp(App):
             formats=self.formats, offset_provider=self,
             port=serial_port, baudrate=baudrate,
         )
-
-        if not self.formats.disable_error_reporting:
-            log.info("Error reporting is enabled, configuring Sentry")
-            sentry_sdk.init(
-                dsn="https://8fd20c0607e9c930a16d51a4b1eacc94@o4509625403506688.ingest.us.sentry.io/4509625405014016",
-                send_default_pii=False,
-                traces_sample_rate=0.2,
-            )
 
         # Backward compat aliases — most KV files use app.servo / app.inputs / app.axes
         self.servo = self.board.servo

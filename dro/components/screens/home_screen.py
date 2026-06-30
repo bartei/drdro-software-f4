@@ -92,5 +92,17 @@ class HomePage(Screen):
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         if text == "t" and "ctrl" in modifiers:
-            self.exit_stack.enter_context(TraceOutput(file=open("trace.out", "w")))
+            self._toggle_trace()
             return True
+
+    def _toggle_trace(self):
+        """Ctrl+T toggles keke performance tracing to trace.out (start/stop)."""
+        import contextlib
+        if getattr(self, "_trace_stack", None) is None:
+            self._trace_stack = contextlib.ExitStack()
+            self._trace_stack.enter_context(TraceOutput(file=open("trace.out", "w")))
+            log.info("Performance trace started → trace.out")
+        else:
+            self._trace_stack.close()
+            self._trace_stack = None
+            log.info("Performance trace stopped (trace.out written)")

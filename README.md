@@ -65,6 +65,23 @@ dro/
 
 ---
 
+## Migrating from rotary-controller-python (RCP)
+
+drDRO software is RCP with the communication layer replaced. If you're coming from RCP:
+
+- **Firmware:** requires the new **drDRO firmware** ([drdro-firmware-f4](https://github.com/bartei/drdro-firmware-f4))
+  speaking the RS-485 **line protocol** — it does **not** talk to the old Modbus firmware.
+- **No Modbus address:** the bus has a single device and no addressing; `config.ini` no longer
+  has a `[device] address` key (just `serial_port` + `baudrate`). `minimalmodbus` is replaced by `pyserial`.
+- **Board-stored settings:** servo max/accel/jog now live in the board's flash and are read on
+  connect (no re-push every reconnect); the UI writes + `save`s them on change. Sync ratios are
+  still computed host-side and pushed live.
+- **Config location:** settings now live in `~/.config/drdro-software/` (was
+  `~/.config/rotary-controller-python/`). Existing RCP YAML files are not auto-migrated — copy
+  them over if you want to keep your axis/format configuration.
+- **New: firmware updates from the UI** — the Firmware screen flashes board releases over RS-485
+  (Setup → Firmware), and lets you pick the boot bank / reboot the board.
+
 ## References
 
 - **Firmware & protocol:** [drdro-firmware-f4](https://github.com/bartei/drdro-firmware-f4)
