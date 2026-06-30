@@ -1,3 +1,4 @@
+#: import RetroProgressBar dro.components.widgets.progress_bar.RetroProgressBar
 #: import Factory kivy.factory.Factory
 #: import Keypad dro.components.popups.keypad
 #: import FeedsTablePopup dro.components.popups.feeds_table_popup
@@ -41,10 +42,11 @@
       valign: 'middle'
       disabled: app.servo.disableControls
       on_release: app.servo.update_current_position()
-    ProgressBar:
+    RetroProgressBar:
       size_hint_y: 0.20
       max: int(app.servo.maxSpeed)
       value: int(abs(app.servo.speed))
+      fill_color: app.formats.display_color
 
   Button:
     width: self.height

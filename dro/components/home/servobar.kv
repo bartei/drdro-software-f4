@@ -1,3 +1,4 @@
+#: import RetroProgressBar dro.components.widgets.progress_bar.RetroProgressBar
 #: import Factory kivy.factory.Factory
 #: import Keypad dro.components.popups.keypad
 #: import AutoSizeButton dro.components.widgets.auto_size_button
@@ -38,10 +39,11 @@
       valign: 'middle'
       disabled: app.servo.disableControls
       on_release: app.servo.update_current_position()
-    ProgressBar:
+    RetroProgressBar:
       size_hint_y: 0.20
       max: int(app.servo.maxSpeed)
       value: int(abs(app.servo.speed))
+      fill_color: app.formats.display_color
 
   BoxLayout:
     orientation: "vertical"

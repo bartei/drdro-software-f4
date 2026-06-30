@@ -1,3 +1,4 @@
+#: import RetroProgressBar dro.components.widgets.progress_bar.RetroProgressBar
 #: import ButtonItem dro.components.widgets.button_item
 #: import BooleanItem dro.components.widgets.boolean_item
 #: import DropDownItem dro.components.widgets.dropdown_item
@@ -101,11 +102,12 @@
         # ── Progress ────────────────────────────────────────────
         TitleItem:
           name: "Upload progress"
-        ProgressBar:
+        RetroProgressBar:
           size_hint_y: None
           height: 30
           max: 1.0
           value: root.progress
+          fill_color: app.formats.display_color
 
         # ── Activity log ────────────────────────────────────────
         TitleItem:

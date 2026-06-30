@@ -1,0 +1,20 @@
+<RetroProgressBar>:
+    canvas:
+        # well
+        Color:
+            rgba: root.background_color
+        Rectangle:
+            pos: self.pos
+            size: self.size
+        # solid progress fill (inset by the border)
+        Color:
+            rgba: root.fill_color
+        Rectangle:
+            pos: self.x + root.border_width, self.y + root.border_width
+            size: max(0, (self.width - 2 * root.border_width) * root.fraction), max(0, self.height - 2 * root.border_width)
+        # 1px frame
+        Color:
+            rgba: root.border_color
+        Line:
+            width: root.border_width
+            rectangle: (self.x, self.y, self.width, self.height)
