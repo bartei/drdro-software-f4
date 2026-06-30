@@ -100,6 +100,13 @@ class ServoDispatcher(SavingDispatcher):
         self.disableControls = True
         self.servoEnable = 0
         self._speed_override_active = False
+        # servo.mode is a command the host owns, but `sta` reports it back with poll lag.
+        # Track the value we last commanded and don't let the laggy read revert it until
+        # the board confirms it (else the async write oscillates against the poll). Once
+        # confirmed (or after a timeout), firmware-driven changes (e.g. sync→1) are adopted.
+        self._expected_mode: int | None = None
+        self._mode_wait = 0
+        self._adopting_mode = False
 
     def configure_lead_screw_ratio(self, instance, value):
         if self.elsMode is True:
@@ -166,9 +173,7 @@ class ServoDispatcher(SavingDispatcher):
 
             self.encoderPrevious = self.encoderCurrent
             self.encoderCurrent = self.board.fast_data_values['servoCurrent']
-            servoEnable = self.board.fast_data_values['servoEnable']
-            if servoEnable != self.servoEnable:
-                self.servoEnable = servoEnable
+            self._reconcile_mode(self.board.fast_data_values['servoEnable'])
 
             steps_per_second = self.board.fast_data_values['servoSpeed']
             self.speed_history.append(steps_per_second)
@@ -267,8 +272,31 @@ class ServoDispatcher(SavingDispatcher):
             return
         self.board.write_persisted('servo.acc', self.acceleration)
 
+    def _reconcile_mode(self, board_mode):
+        """Sync self.servoEnable with the board's reported servoMode, without fighting a
+        command we just issued (write lag) — see _expected_mode."""
+        if self._expected_mode is not None:
+            if board_mode == self._expected_mode:
+                self._expected_mode = None
+                self._mode_wait = 0
+            else:
+                self._mode_wait += 1
+                if self._mode_wait > 30:          # ~1 s: command never confirmed, give up
+                    self._expected_mode = None
+                    self._mode_wait = 0
+            return
+        if board_mode != self.servoEnable:        # firmware-driven change (e.g. sync→1)
+            self._adopting_mode = True
+            try:
+                self.servoEnable = board_mode
+            finally:
+                self._adopting_mode = False
+
     def on_servoEnable(self, instance, value):
-        self.board.write('servo.mode', self.servoEnable)
+        if not self._adopting_mode:               # host-initiated → command the board
+            self._expected_mode = int(self.servoEnable)
+            self._mode_wait = 0
+            self.board.write('servo.mode', self.servoEnable)
         if self.servoEnable != 0:
             log.info("Disable Controls False")
             self.disableControls = False
