@@ -114,6 +114,7 @@ design proposal):
 | `servo.max`    | f32 | 1 | RW | `servo.maxSpeed`         | `device['servo']['maxSpeed']` |
 | `servo.acc`    | f32 | 1 | RW | `servo.acceleration`     | `device['servo']['acceleration']` |
 | `servo.jog`    | f32 | 1 | RW | `servo.jogSpeed`         | `device['servo']['jogSpeed']` |
+| `servo.idx`    | f32 | 1 | RW | `servo.indexSpeed`       | `device['servo']['indexSpeed']` (indexing feedrate cap; 0 = use `servo.max`) |
 | `servo.mode`   | u16 | 1 | RW | `fastData.servoMode`     | `device['fastData']['servoEnable']` (0=off,1=sync/index,2=jog) |
 | `servo.pos`    | u32 | 1 | RO | `servo.currentSteps`     | `fast_data_values['servoCurrent']` |
 | `servo.speed`  | f32 | 1 | RO | `servo.currentSpeed`     | `fast_data_values['servoSpeed']` |
@@ -203,14 +204,18 @@ config once with `save`, and on connect **read it back** (`settings`/`get`) to s
 
 ### D.2 What the firmware flash can hold
 
-`settings_t` payload (the **only** fields the board persists) — must not be reordered without
-bumping `SETTINGS_VERSION`; both app & bootloader **read-modify-write the whole struct**:
+`settings_t` payload (the **only** fields the board persists). Layout is **forward-compatible
+and append-only** (firmware `shared/Settings.h`): `crc` is field 0 at a frozen offset,
+`used_size` makes validation length-based, and **new fields are added at the END only** — never
+inserted or reordered — so adding a variable never shifts existing offsets or breaks an
+older/separately-flashed binary (the bootloader). Both app & bootloader **read-modify-write the
+whole struct**:
 
 ```
-scale_num[4]  scale_den[4]  scale_sync[4]   servo_max  servo_acc  servo_jog  servo_mode
+[crc magic version used_size]  seq active_bank loaded_bank boot_mode bank_crc[2]
+  scale_num[4]  scale_den[4]  scale_sync[4]  servo_max  servo_acc  servo_jog  servo_mode  servo_index
 ```
-(plus board-control fields the host doesn't own: `boot_mode`, `active_bank`, `loaded_bank`,
-`bank_crc[2]`, `seq`, `magic`, `version`, `crc`).
+(host owns only the payload fields; the rest are board-control fields.)
 
 ### D.3 Classification — store-on-board vs keep-in-host
 
@@ -220,7 +225,7 @@ scale_num[4]  scale_den[4]  scale_sync[4]   servo_max  servo_acc  servo_jog  ser
 | Setting | Where | Change frequency | Rationale |
 |---|---|---|---|
 | `scales.num[4]` / `scales.den[4]` (final sync ratios) | **Host (Python) — set live, NOT saved** ✅D4 | frequent | Complex ratio math that changes often and **depends on the MM/IN display unit**. Python is the source of truth; it derives them and **pushes (`set`) on connect and on change**, but **never `save`s** them to flash. **See D.4.** |
-| `servo.max`, `servo.acc` | **Board flash (firmware = source of truth)** ✅D5 | rare | Config (Servo Settings screen). Persist on the board; **read on connect**, `set`+`save` on UI change. |
+| `servo.max`, `servo.acc`, `servo.idx` | **Board flash (firmware = source of truth)** ✅D5 | rare | Config (Servo Settings / index speed keypad). Persist on the board; **read on connect**, `set`+`save` on UI change. `servo.idx` caps the indexing/offset ramp in the firmware so a move never lowers `servo.max` (which sets the step-pulse cadence a simultaneous sync follower rides). |
 | `servo.jog` | **Live operational — set, NOT saved** | frequent | Driven by the jog slider; `set` live only. A `save` per change stalls the firmware protocol task ~200 ms (flash write) → freezes the position readout mid-jog, so it is never flash-saved. |
 | `scales.sync[4]` (enable) | **Live operational — read on connect, not saved** ✅D5 | medium | Toggle (`toggle_sync`); `set` live, **read** on connect to sync the UI to actual board state. Not persisted. |
 | `servo.mode` | **Live operational — read on connect, not saved** ✅D5 | medium | Off/sync/jog; `set` live, **read** on connect to sync the UI. Not persisted. |

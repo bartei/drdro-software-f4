@@ -12,7 +12,7 @@ the async client:
 - On (re)connect the board reads the full `settings` dump into a cache; `cached()` serves the
   occasional synchronous reads (e.g. sync-enable state) the dispatchers need.
 
-Settings model (design §D): the firmware is the source of truth for `servo.max/acc/jog`
+Settings model (design §D): the firmware is the source of truth for `servo.max/acc/jog/idx`
 (read on connect, `set`+`save` on UI change); dynamic ratios `scales.num/den` are pushed
 live and never saved; `scales.sync`/`servo.mode` are live operational state.
 """

@@ -99,7 +99,11 @@ class ServoDispatcher(SavingDispatcher):
         self.positions = dict()
         self.disableControls = True
         self.servoEnable = 0
-        self._speed_override_active = False
+        # An indexed/offset move writes servo.tgt asynchronously; the sta poll can still report
+        # the old stepsToGo==0 for a tick or two. _move_pending defers re-enabling the controls
+        # until the move is actually observed underway (or a ~0.6 s timeout) so they don't flicker.
+        self._move_pending = False
+        self._move_wait = 0
         # servo.mode is a command the host owns, but `sta` reports it back with poll lag.
         # Track the value we last commanded and don't let the laggy read revert it until
         # the board confirms it (else the async write oscillates against the poll). Once
@@ -135,6 +139,9 @@ class ServoDispatcher(SavingDispatcher):
             v = self.board.cached("servo.jog")
             if v is not None:
                 self.jogSpeed = float(v)
+            v = self.board.cached("servo.idx")
+            if v is not None:
+                self.indexSpeed = float(v)
         finally:
             self._syncing = False
 
@@ -183,16 +190,27 @@ class ServoDispatcher(SavingDispatcher):
 
             delta = uint32_subtract_to_int32(self.encoderCurrent, self.encoderPrevious)
             self.position += delta
-            if (
-                    self.board.fast_data_values['stepsToGo'] == 0 and
+
+            steps_to_go = self.board.fast_data_values['stepsToGo']
+            if self._move_pending:
+                # A just-issued indexed/offset move writes servo.tgt asynchronously; the sta
+                # poll can still report the old stepsToGo==0 for a tick or two. Wait until the
+                # move is actually observed running (or give up after ~0.6 s) before letting
+                # the "move complete" branch re-enable the controls, so they don't flicker.
+                if steps_to_go != 0:
+                    self._move_pending = False
+                    self._move_wait = 0
+                else:
+                    self._move_wait += 1
+                    if self._move_wait > 30:
+                        self._move_pending = False
+                        self._move_wait = 0
+            elif (
+                    steps_to_go == 0 and
                     self.servoEnable != 0 and
                     self.disableControls
                     and self.board.connected
             ):
-                if self._speed_override_active:
-                    self.board.write('servo.max', self.maxSpeed)
-                    self._speed_override_active = False
-                    log.info("Restored maxSpeed to %s", self.maxSpeed)
                 log.info("Disable Controls False")
                 self.disableControls = False
         except Exception as e:
@@ -240,10 +258,13 @@ class ServoDispatcher(SavingDispatcher):
                 delta = (delta + steps_per_turn)
 
         if delta != 0:
-            self.board.write('servo.max', self.indexSpeed)
-            self._speed_override_active = True
+            # Indexing feedrate is the board-owned, persisted servo.idx (capped in the
+            # firmware ramp generator) — no host-side servo.max override, so a simultaneous
+            # sync follower keeps the full mechanical pulse cadence.
             self.board.write('servo.tgt', delta)
             self.disableControls = True
+            self._move_pending = True
+            self._move_wait = 0
             self.previousIndex = self.index
 
     def on_offset(self, instance, value):
@@ -251,10 +272,11 @@ class ServoDispatcher(SavingDispatcher):
         delta = value - self.oldOffset
         delta_steps = int(delta / ratio)
         if delta_steps != 0:
-            self.board.write('servo.max', self.indexSpeed)
-            self._speed_override_active = True
+            # See on_index: feedrate is the persisted board-side servo.idx, not a maxSpeed override.
             self.board.write('servo.tgt', delta_steps)
             self.disableControls = True
+            self._move_pending = True
+            self._move_wait = 0
             self.oldOffset = value
 
     def on_maxSpeed(self, instance, value):
@@ -274,6 +296,12 @@ class ServoDispatcher(SavingDispatcher):
         if self._syncing:
             return
         self.board.write_persisted('servo.acc', self.acceleration)
+
+    def on_indexSpeed(self, instance, value):
+        if self._syncing:
+            return
+        # Board-owned, persisted indexing feedrate (firmware caps the indexing ramp to it).
+        self.board.write_persisted('servo.idx', self.indexSpeed)
 
     def _reconcile_mode(self, board_mode):
         """Sync self.servoEnable with the board's reported servoMode, without fighting a
