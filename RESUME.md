@@ -32,13 +32,25 @@ talks to it.
   `servo/axis/input/els`, plus ported `ctype_calc/saving_dispatcher/formats/axis_transform`.
   Firmware = source of truth for `servo.max/acc/jog` (read on connect); ratios pushed live,
   never saved. 4 unit tests + a headless HW harness drove the live board successfully.
-- ⏳ **Next: Phase 4** — the Kivy UI port (screens/home/popups/widgets/plot) + the app shell
-  (`app.py`, `main.py`, `manager.py`, `appsettings.py`, `feeds.py`). Then Phase 5 (firmware
-  update UI). The bench "identical UI behaviour" verification happens once the UI exists.
+- ✅ **Phase 4 (built & rendering):** full Kivy UI ported into `dro/` (19 screens + 51 `.kv`,
+  home modes/bars, popups, widgets, plot, toolbars) + app shell (`app.py`/`main.py`/`manager.py`/
+  `appsettings.py`/`feeds.py`) + pattern dispatchers + assets. App builds headless (Xvfb+SDL2/GL),
+  all 19 screens instantiate, the home screen renders live against the board (v0.1.0).
+- ⏳ **Next: interactive parity pass + Phase 5 on a REAL DESKTOP** (user is setting one up).
+  Click through every screen/popup, watch live motion (encoders/servo), then build the firmware
+  update UI (Phase 5): YMODEM sender + bootloader CLI flow ported from `../drdro-firmware-f4/
+  tools/dro_update.py`, new firmware screen (bank status / flash / rollback / progress).
 
-### Bridge gotchas for Phase 4
-- The board poll loop is **asyncio** (not Kivy Clock). `MainApp` must call `board.start()` after
-  the asyncio loop is running (it is, under `async_run`). `board._spawn` schedules writes on that loop.
+### Running the UI
+- `uv run python -m dro.main` (config: `config.ini` at repo root; serial port set there).
+- The board poll loop is **asyncio** (not Kivy Clock); `MainApp.build` calls `board.start()` after
+  the loop is up (under `async_run`). `board._spawn` schedules writes on that loop.
+- **NixOS headless GL recipe** (Xvfb): the uv-wheel SDL2 needs system GL/X libs on `LD_LIBRARY_PATH`.
+  Find real `.so` dirs (NOT `-dev` outputs) for `libGL.so.1` (libglvnd) + `libX11/Xext/Xrender/
+  Xcursor/Xi/Xrandr/Xinerama`, then:
+  `nix-shell -p xvfb-run mesa --run "xvfb-run -a -s '-screen 0 1024x600x24' env LD_LIBRARY_PATH=<dirs> LIBGL_ALWAYS_SOFTWARE=1 uv run python -m dro.main"`.
+  On a real desktop with system GL this is unnecessary — just `DISPLAY=:0 uv run python -m dro.main`.
+  Scratchpad has `run_app.py` (screenshot-then-quit) + `gldirs.txt` (the resolved lib dirs).
 - ST-Link flashing leaves the board in ST ROM (HW-1 floating BOOT0). Recover with an openocd
   `reset run` (`-f interface/stlink.cfg -f target/stm32f4x.cfg -c "init; reset run; exit"`).
 - Host config dir is `~/.config/drdro-software` (was `rotary-controller-python`). No Modbus address.
