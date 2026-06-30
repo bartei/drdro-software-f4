@@ -63,6 +63,9 @@ class Manager(ScreenManager):
         from dro.components.screens.update_screen import UpdateScreen
         self.add_widget(UpdateScreen(name="update"))
 
+        from dro.components.screens.firmware_screen import FirmwareScreen
+        self.add_widget(FirmwareScreen(name="firmware"))
+
         from dro.components.screens.system_screen import SystemScreen
         self.add_widget(SystemScreen(name="system"))
 

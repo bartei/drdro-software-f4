@@ -255,6 +255,16 @@ class ProtocolClient:
             self._mark_error(self._last_error or "no valid frame")
         return resp
 
+    async def run_blocking(self, fn):
+        """Run ``fn(serial)`` on the executor thread holding the bus lock — for raw byte
+        sequences (YMODEM) and multi-step bootloader flows that need exclusive serial access.
+        The caller is responsible for pausing any concurrent polling (see Board.pause)."""
+        if self._ser is None:
+            raise ProtocolError("client not open")
+        async with self._lock:
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(self._executor, fn, self._ser)
+
     def _transact(self, text: str, timeout: float, retries: int) -> Response:
         """Blocking write+read+retry. Runs on the executor thread."""
         last = Response()

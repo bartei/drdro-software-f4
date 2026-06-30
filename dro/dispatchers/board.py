@@ -73,6 +73,7 @@ class Board(EventDispatcher):
 
         self._settings: Response | None = None        # last `settings` snapshot (cache)
         self._running = False
+        self._paused = False                           # firmware update yields the bus
         self._diag_counter = 0
         self._save_task: asyncio.Task | None = None
         self._tasks: set[asyncio.Task] = set()
@@ -107,8 +108,20 @@ class Board(EventDispatcher):
     def stop(self) -> None:
         self._running = False
 
+    def pause(self) -> None:
+        """Stop polling so another task (firmware update) can take exclusive bus ownership."""
+        self._paused = True
+
+    def resume(self) -> None:
+        """Resume polling; force a settings re-read on the next successful poll."""
+        self._settings = None
+        self.connected = False
+        self._paused = False
+
     async def poll_once(self) -> None:
         """One poll cycle: `sta` → fast_data_values, connection/cache handling, tick bump."""
+        if self._paused:
+            return
         was_disconnected = not self.connected
         resp = await self.connection.sta()
 

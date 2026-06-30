@@ -1,0 +1,89 @@
+#: import ButtonItem dro.components.widgets.button_item
+#: import BooleanItem dro.components.widgets.boolean_item
+#: import DropDownItem dro.components.widgets.dropdown_item
+
+<FirmwareScreen>:
+  BoxLayout:
+    orientation: "vertical"
+    padding: 10
+
+    ScreenHeader:
+      text: "Firmware"
+
+    ScrollView:
+      do_scroll_x: False
+      do_scroll_y: True
+      GridLayout:
+        cols: 1
+        spacing: 1
+        size_hint_y: None
+        height: self.minimum_height
+
+        ButtonItem:
+          height: 60
+          name: "Current firmware version"
+          value: root.current_version
+          on_release: root.refresh_status()
+
+        ButtonItem:
+          height: 60
+          name: "Currently active bank"
+          value: root.active_bank_text
+          on_release: root.refresh_status()
+
+        DropDownItem:
+          height: 60
+          name: "Boot bank (next reboot)"
+          options: ["0", "1"]
+          value: root.boot_bank
+          on_value: root.set_bank(self.value)
+
+        ButtonItem:
+          height: 60
+          name: "Reboot firmware now"
+          value: "Reset"
+          on_release: root.do_reset()
+
+        ButtonItem:
+          height: 60
+          name: "Refresh available versions"
+          value: "Refresh"
+          on_release: root.refresh_releases()
+
+        BooleanItem:
+          height: 60
+          name: "Allow pre-releases"
+          value: root.include_prerelease
+          on_value: root.include_prerelease = self.value
+
+        DropDownItem:
+          height: 60
+          name: "Available firmware"
+          options: root.version_options
+          value: root.selected_tag
+          on_value: root.select_version(self.value)
+
+        BoxLayout:
+          size_hint_y: None
+          height: 60
+          Button:
+            text: "Install Selected Firmware" if not root.busy else "Updating…"
+            disabled: root.busy or not root.selected_tag
+            on_release: root.install_selected()
+
+        TitleItem:
+          name: "Upload progress"
+        ProgressBar:
+          size_hint_y: None
+          height: 30
+          max: 1.0
+          value: root.progress
+
+        TitleItem:
+          name: "Status"
+        TextInput:
+          size_hint_y: None
+          height: 180
+          readonly: True
+          multiline: True
+          text: root.status_text
