@@ -72,7 +72,10 @@ land; keep the design doc as the source of truth. **D2/D3/D4/D5 confirmed; D1 de
 - [x] Interactive parity pass on a real desktop (Wayland/XWayland, DISPLAY :0): all 24 screens
       toured + rendered, all 4 home modes (Index/ELS/Jog/DRO), keypad popup, plot canvas; servo
       values read live from the board (720/120), nmcli live, non-Pi system detection. v0.1.0.
-- [ ] Live-motion check (move encoders / run servo index, watch DRO + servo update) — with the user
+- [x] Live-motion check (servo jog + index) HW-verified through the UI: jog ramps servo pos,
+      index counts stepsToGo to 0 and completes; servo bar shows enabled + live position.
+      Fixed a port bug found here — servo mode command was reverted by the laggy `sta` read
+      (async write lag); now held until the board confirms it (commit e1a1dc5).
 
 ## Phase 5 — Firmware update & bank management (new feature)
 - [ ] `dro/comms/ymodem.py` (YMODEM sender; port from `dro_update.py`)
