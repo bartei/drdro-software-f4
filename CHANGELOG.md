@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-06-30)
+
+### Features
+
+- **ui**: Declutter home — hide debug ribbon by default, add Stats screen
+  ([`c616da7`](https://github.com/bartei/drdro-software-f4/commit/c616da724456e1196482d8fa88da18efb558bba6))
+
+
 ## v1.1.3 (2026-06-30)
 
 ### Bug Fixes
