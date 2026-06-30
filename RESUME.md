@@ -36,10 +36,19 @@ talks to it.
   home modes/bars, popups, widgets, plot, toolbars) + app shell (`app.py`/`main.py`/`manager.py`/
   `appsettings.py`/`feeds.py`) + pattern dispatchers + assets. App builds headless (Xvfb+SDL2/GL),
   all 19 screens instantiate, the home screen renders live against the board (v0.1.0).
-- ⏳ **Next: interactive parity pass + Phase 5 on a REAL DESKTOP** (user is setting one up).
-  Click through every screen/popup, watch live motion (encoders/servo), then build the firmware
-  update UI (Phase 5): YMODEM sender + bootloader CLI flow ported from `../drdro-firmware-f4/
-  tools/dro_update.py`, new firmware screen (bank status / flash / rollback / progress).
+- ✅ **Phase 4 interactive parity (real desktop, DISPLAY :0):** all 24 screens toured + render,
+  4 home modes, keypad; servo values read live from flash. Fixed a servo-mode oscillation bug
+  (async write reverted by laggy `sta` read) — `_expected_mode` guard (commit e1a1dc5).
+- ✅ **Live motion (HW-verified via UI):** servo jog ramps pos; index counts `stepsToGo`→0 and
+  completes. Confirmed firmware motion is solid via a direct-client probe too.
+- ✅ **Phase 5 (HW-verified):** `dro/comms/ymodem.py` + `updater.py` (GitHub release list/download +
+  dual-bank flash flow) + `ProtocolClient.run_blocking` + `Board.pause/resume`; firmware screen
+  (version, active bank, boot-bank selector, manual reset, GitHub version list, install, progress
+  bar, status log). Flashed a local `.bin` into the inactive bank over RS-485 and booted it
+  (bank 1→0, version updated). **GitHub fetch path untested here (no network/CA certs).**
+- ⏳ **Next: Phase 6 (release & polish)** — CI (GitHub Actions build+tests, semantic-release),
+  verify GitHub firmware fetch on a networked machine, RCP dead-code cleanup, Modbus→protocol
+  user notes. Optional: expose rollback/erase/crc in the firmware UI (plumbing exists).
 
 ### Running the UI
 - `uv run python -m dro.main` (config: `config.ini` at repo root; serial port set there).

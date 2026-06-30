@@ -77,13 +77,19 @@ land; keep the design doc as the source of truth. **D2/D3/D4/D5 confirmed; D1 de
       Fixed a port bug found here — servo mode command was reverted by the laggy `sta` read
       (async write lag); now held until the board confirms it (commit e1a1dc5).
 
-## Phase 5 — Firmware update & bank management (new feature)
-- [ ] `dro/comms/ymodem.py` (YMODEM sender; port from `dro_update.py`)
-- [ ] `dro/comms/updater.py` (orchestrate update→info→flash→bank→boot, progress callbacks)
-- [ ] Bootloader CLI client coverage (`info bank boot.mode flash erase crc copy rollback boot reset`)
-- [ ] Firmware screen: pick `.bin` (local; GitHub later per D4), progress, bank status, rollback
-- [ ] Exclusive bus ownership during update (pause `sta`)
-- [ ] Bench: end-to-end firmware update + rollback from the UI
+## Phase 5 — Firmware update & bank management — done 2026-06-29, HW-verified
+- [x] `dro/comms/ymodem.py` (YMODEM sender, CRC-16/1024B, progress cb; port from `dro_update.py`)
+- [x] `dro/comms/updater.py` (`FirmwareUpdater`: GitHub release list/download + flash flow
+      update→info→flash<bank> YMODEM→bank<n>→boot; version/bank/reset helpers)
+- [x] Bootloader CLI driven via the framed client (`info`, `flash <n>`, `bank <n>`, `boot`)
+- [x] `ProtocolClient.run_blocking` (exclusive serial) + `Board.pause/resume` (yield the bus)
+- [x] Firmware screen: current version, active-bank field, **boot-bank selector**, **manual Reset**,
+      GitHub version list (+pre-release toggle), Install, **upload progress bar**, status log;
+      registered in manager + "Firmware" setup button
+- [x] **HW-verified**: flashed a local `.bin` into the inactive bank over RS-485 (YMODEM, 49592 B),
+      set active, booted — version + active bank updated (1→0). UI rendered with live data.
+- [ ] GitHub fetch verified on a networked machine (code done; sandbox has no network/CA certs)
+- [ ] Optional: expose `rollback` / `erase` / `crc` bootloader commands in the UI (have the plumbing)
 
 ## Phase 6 — Release & polish
 - [ ] CI (GitHub Actions) build + tests; `python-semantic-release` on main/dev
