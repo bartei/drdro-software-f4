@@ -69,7 +69,10 @@ land; keep the design doc as the source of truth. **D2/D3/D4/D5 confirmed; D1 de
 - [x] `rcp.`→`dro.` rewrite incl. bare KV `#: import` targets; `~/.config/drdro-software` config dir
 - [x] **App builds & renders headless (Xvfb+SDL2/GL)**: all 19 screens instantiate, 51 KV files load,
       home screen renders live against the board (screenshot). Package version v0.1.0 shown.
-- [ ] Interactive parity pass (navigate every screen, popups, live motion) — best on a real desktop
+- [x] Interactive parity pass on a real desktop (Wayland/XWayland, DISPLAY :0): all 24 screens
+      toured + rendered, all 4 home modes (Index/ELS/Jog/DRO), keypad popup, plot canvas; servo
+      values read live from the board (720/120), nmcli live, non-Pi system detection. v0.1.0.
+- [ ] Live-motion check (move encoders / run servo index, watch DRO + servo update) — with the user
 
 ## Phase 5 — Firmware update & bank management (new feature)
 - [ ] `dro/comms/ymodem.py` (YMODEM sender; port from `dro_update.py`)
