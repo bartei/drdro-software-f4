@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.2 (2026-06-30)
+
+### Performance Improvements
+
+- **board**: Rate-limit sta poll to target (subtract round-trip); show sta Hz
+  ([`7b9fc0e`](https://github.com/bartei/drdro-software-f4/commit/7b9fc0e00c16da293a1429a8ee2eceeaaaa05a8c))
+
+
 ## v1.1.1 (2026-06-30)
 
 ### Bug Fixes
