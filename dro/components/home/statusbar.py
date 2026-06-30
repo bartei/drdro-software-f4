@@ -11,7 +11,7 @@ load_kv(__file__)
 
 class StatusBar(BoxLayout):
     update_tick = NumericProperty(0)
-    interval = NumericProperty(0)
+    comm_rate = NumericProperty(0)   # measured sta poll rate (Hz)
     cycles = NumericProperty(0)
     fps = NumericProperty(0)
 
@@ -23,6 +23,7 @@ class StatusBar(BoxLayout):
 
     def update(self, *args, **kv):
         self.fps = Clock.get_fps()
+        self.comm_rate = self.app.board.comm_rate
         if not self.app.board.connected:
             return
 
@@ -30,7 +31,6 @@ class StatusBar(BoxLayout):
             # There is no connection yet
             return
         try:
-            self.interval = self.app.board.fast_data_values['executionInterval']
             self.cycles = self.app.board.fast_data_values['cycles']
         except Exception as e:
             log.debug(str(e), exc_info=True)

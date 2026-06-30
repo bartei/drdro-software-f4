@@ -10,7 +10,7 @@
     checkbox_value: app.board.connected or app.board.blink
 
   LedButton:
-    label: "{:0.0f}".format(0 if root.interval == 0 else (100000000 / root.interval))
+    label: "{:0.0f} Hz".format(root.comm_rate)
 
   LedButton:
     label: "{:0.0f}".format(root.fps)

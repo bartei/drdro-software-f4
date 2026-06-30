@@ -18,6 +18,7 @@ live and never saved; `scales.sync`/`servo.mode` are live operational state.
 """
 import asyncio
 import os
+import time
 
 from kivy.clock import Clock
 from kivy.event import EventDispatcher
@@ -61,7 +62,7 @@ class Board(EventDispatcher):
     axes = ListProperty()
 
     def __init__(self, formats, offset_provider, *, port="/dev/serial0", baudrate=115200,
-                 poll_period=1.0 / 30, save_debounce=0.75, **kv):
+                 poll_period=1.0 / 50, save_debounce=0.75, **kv):
         super().__init__(**kv)
         self.formats = formats
         self.offset_provider = offset_provider
@@ -74,6 +75,8 @@ class Board(EventDispatcher):
         self._settings: Response | None = None        # last `settings` snapshot (cache)
         self._running = False
         self._paused = False                           # firmware update yields the bus
+        self.comm_rate = 0.0                           # measured `sta` polls/sec (EMA)
+        self._last_poll_t: float | None = None
         self._diag_counter = 0
         self._save_task: asyncio.Task | None = None
         self._tasks: set[asyncio.Task] = set()
@@ -102,8 +105,11 @@ class Board(EventDispatcher):
     async def run(self, period: float) -> None:
         await self.open()
         while self._running:
+            t0 = time.monotonic()
             await self.poll_once()
-            await asyncio.sleep(period)
+            # Rate-limit to `period` by sleeping only the remainder after the sta round-trip,
+            # rather than adding a fixed sleep on top of it (which capped us well below target).
+            await asyncio.sleep(max(0.0, period - (time.monotonic() - t0)))
 
     def stop(self) -> None:
         self._running = False
@@ -131,10 +137,25 @@ class Board(EventDispatcher):
             if was_disconnected:
                 await self._refresh_settings()      # cache BEFORE flipping connected
             self.connected = True
+            self._measure_comm_rate()
         else:
             self.connected = self.connection.connected
 
+        if not self.connected:
+            self.comm_rate = 0.0
+            self._last_poll_t = None
+
         self.update_tick = (self.update_tick + 1) % 100
+
+    def _measure_comm_rate(self) -> None:
+        """Update the EMA of the achieved `sta` poll frequency (Hz) for the status bar."""
+        now = time.monotonic()
+        if self._last_poll_t is not None:
+            dt = now - self._last_poll_t
+            if dt > 0:
+                inst = 1.0 / dt
+                self.comm_rate = inst if self.comm_rate <= 0 else self.comm_rate * 0.8 + inst * 0.2
+        self._last_poll_t = now
 
     async def _poll_diag(self) -> None:
         """Low-rate diag read (statusbar) — ~once per second, folded into the poll loop."""
