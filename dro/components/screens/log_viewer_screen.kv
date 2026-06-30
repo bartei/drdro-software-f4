@@ -1,0 +1,28 @@
+#: import ScreenHeader dro.components.widgets.screen_header
+
+<LogViewerScreen>:
+  BoxLayout:
+    orientation: "vertical"
+    padding: 10
+    ScreenHeader:
+      text: root.log_file_name
+
+    BoxLayout:
+      orientation: "horizontal"
+      Label:
+        text: root.log_content
+        text_size: self.size
+        padding: 10, 10
+        font_size: 14
+        halign: "left"
+        valign: "top"
+      Slider:
+        size_hint_x: None
+        width: 48
+        orientation: "vertical"
+        min: 0
+        max: max(0, root.line_count - 30)
+        step: 1
+        value: root.slider_value
+        on_value: root.slider_value = int(self.max - self.value)
+        value_track: True

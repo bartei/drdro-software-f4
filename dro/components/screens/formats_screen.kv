@@ -1,0 +1,164 @@
+#: import StringItem dro.components.widgets.string_item
+#: import NumberItem dro.components.widgets.number_item
+#: import BooleanItem dro.components.widgets.boolean_item
+#: import ColorItem dro.components.widgets.color_item
+#: import FontItem dro.components.widgets.font_item
+#: import DropDownItem dro.components.widgets.dropdown_item
+
+<FormatsScreen>:
+  formats: app.formats
+  BoxLayout:
+    orientation: "vertical"
+    padding: 10
+    ScreenHeader:
+      text: "Format Settings"
+
+    ScrollView:
+      do_scroll_x: False
+      do_scroll_y: True
+      GridLayout:
+        id: grid_layout
+        cols: 1
+        spacing: 1
+        size_hint_y: None
+        height: self.minimum_height
+
+        TitleItem:
+          name: "Format Settings"
+        NumberItem:
+          name: "Metric Position Digits"
+          value: int(root.formats.metric_position.replace("{:+0.", "").replace("f}", ""))
+          integer: True
+          help_file: "format_digits.md"
+          on_value: root.formats.metric_position = "{:+0." + str(self.value) + "f}"
+        NumberItem:
+          name: "Metric Speed Digits"
+          value: int(root.formats.metric_speed.replace("{:+0.", "").replace("f}", ""))
+          integer: True
+          help_file: "format_digits.md"
+          on_value: root.formats.metric_speed = "{:+0." + str(self.value) + "f}"
+        NumberItem:
+          name: "Imperial Position Digits"
+          value: int(root.formats.imperial_position.replace("{:+0.", "").replace("f}", ""))
+          integer: True
+          help_file: "format_digits.md"
+          on_value: root.formats.imperial_position = "{:+0." + str(self.value) + "f}"
+        NumberItem:
+          name: "Imperial Speed Digits"
+          value: int(root.formats.imperial_speed.replace("{:+0.", "").replace("f}", ""))
+          integer: True
+          help_file: "format_digits.md"
+          on_value: root.formats.imperial_speed = "{:+0." + str(self.value) + "f}"
+        DropDownItem:
+          name: "Metric Speed Unit"
+          value: root.formats.metric_speed_unit
+          options: ["mm/rev", "mm/sec", "mm/min", "m/min"]
+          on_value: root.formats.metric_speed_unit = self.value
+        DropDownItem:
+          name: "Imperial Speed Unit"
+          value: root.formats.imperial_speed_unit
+          options: ["in/rev", "in/sec", "in/min", "ft/min"]
+          on_value: root.formats.imperial_speed_unit = self.value
+
+        NumberItem:
+          name: "Angle Format Digits"
+          value: int(root.formats.angle_format.replace("{:+0.", "").replace("f}", ""))
+          integer: True
+          help_file: "format_digits.md"
+          on_value: root.formats.angle_format = "{:+0." + str(self.value) + "f}"
+        NumberItem:
+          name: "Angle Speed (RPM) Format Digits"
+          value: int(root.formats.angle_speed_format.replace("{:+0.", "").replace("f}", ""))
+          integer: True
+          help_file: "format_digits.md"
+          on_value: root.formats.angle_speed_format = "{:+0." + str(self.value) + "f}"
+
+        NumberItem:
+          name: "Default Font Size"
+          value: int(root.formats.font_size)
+          integer: True
+          help_file: "font_size.md"
+          on_value: root.formats.font_size = int(self.value)
+
+        FontItem:
+          name: "Display Font"
+          font_path: app.formats.font_name
+          help_file: "display_font.md"
+          on_font_path: app.formats.font_name = self.font_path
+
+        NumberItem:
+          name: "Position Tolerance (mm)"
+          value: root.formats.position_tolerance
+          help_file: "position_tolerance.md"
+          on_value: root.formats.position_tolerance = self.value
+
+        TitleItem:
+          name: "Display"
+        BooleanItem:
+          name: "Show Speeds"
+          value: root.formats.show_speeds
+          on_value: root.formats.show_speeds = self.value
+        BooleanItem:
+          name: "Show Wizard Button"
+          value: root.formats.show_wizard
+          on_value: root.formats.show_wizard = self.value
+        BooleanItem:
+          name: "Hide Mouse Cursor"
+          value: root.formats.hide_mouse_cursor
+          help_file: "hide_mouse_cursor.md"
+          on_value: root.formats.hide_mouse_cursor = self.value
+
+        TitleItem:
+          name: "Sound Settings"
+        BoxLayout:
+          size_hint_y: None
+          height: 32
+          orientation: "horizontal"
+          Button:
+            size_hint_x: 0.2
+            text: "Test"
+            on_release: app.beep()
+          Slider:
+            size_hint_x: 0.7
+            min: 0
+            max: 0.5
+            value: root.formats.volume
+            on_touch_up: root.formats.volume = self.value
+          Label:
+            size_hint_x: 0.1
+            text: "{}".format(int(root.formats.volume * 200))
+            font_name: "fonts/iosevka-regular.ttf"
+            font_size: 32
+
+        TitleItem:
+          name: "Colors"
+
+        ColorItem:
+          name: "Home Screen Digits"
+          color: root.formats.display_color
+          help_file: "colors.md"
+          on_color: root.formats.display_color = self.color
+
+        ColorItem:
+          name: "Accept Color"
+          color: root.formats.accept_color
+          help_file: "colors.md"
+          on_color: root.formats.accept_color = self.color
+
+        ColorItem:
+          name: "Cancel Color"
+          color: root.formats.cancel_color
+          help_file: "colors.md"
+          on_color: root.formats.cancel_color = self.color
+
+        ColorItem:
+          name: "Indicators On Color"
+          color: root.formats.color_on
+          help_file: "colors.md"
+          on_color: root.formats.color_on = self.color
+
+        ColorItem:
+          name: "Indicators Off Color"
+          color: root.formats.color_off
+          help_file: "colors.md"
+          on_color: root.formats.color_off = self.color

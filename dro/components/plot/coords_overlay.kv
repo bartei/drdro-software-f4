@@ -1,0 +1,57 @@
+<CoordsHeading@Label>:
+    size_hint_y: None
+    height: 25
+    font_name: "fonts/iosevka-regular.ttf"
+    font_size: 14
+    halign: "left"
+    text_size: self.size
+    color: [1, 1, 1, 0.5]
+
+<CoordsValue@Label>:
+    size_hint_y: None
+    height: 20
+    font_name: "fonts/iosevka-regular.ttf"
+    font_size: 14
+    halign: "left"
+    text_size: self.size
+    color: [1, 1, 1, 1]
+
+<CoordsOverlay>:
+    orientation: 'vertical'
+    padding: 2
+    spacing: 2
+
+    canvas.before:
+        Color:
+            rgba: 0.102, 0.102, 0.180, 0.85
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [6]
+
+    CoordsValue:
+        text: "Zoom: {:0.2f} %".format(root.zoom * 100)
+
+    CoordsHeading:
+        text: "Distance to go"
+    BoxLayout:
+        id: dtg_box
+        orientation: 'vertical'
+        size_hint_y: None
+        height: self.minimum_height
+
+    CoordsHeading:
+        text: "Selected"
+    BoxLayout:
+        id: sel_box
+        orientation: 'vertical'
+        size_hint_y: None
+        height: self.minimum_height
+
+    CoordsHeading:
+        text: "Tool"
+    BoxLayout:
+        id: tool_box
+        orientation: 'vertical'
+        size_hint_y: None
+        height: self.minimum_height

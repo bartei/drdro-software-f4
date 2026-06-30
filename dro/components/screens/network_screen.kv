@@ -1,0 +1,103 @@
+#: import ScreenHeader dro.components.widgets.screen_header
+#: import TitleItem dro.components.widgets.title_item
+#: import StringItem dro.components.widgets.string_item
+#: import BooleanItem dro.components.widgets.boolean_item
+#: import DropDownItem dro.components.widgets.dropdown_item
+#: import ButtonItem dro.components.widgets.button_item
+#: import SsidPopup dro.components.popups.ssid_popup
+
+<NetworkScreen>:
+  BoxLayout:
+    title: "Network Settings"
+    orientation: "vertical"
+    padding: 10
+    ScreenHeader:
+      text: "Network Settings"
+
+    ScrollView:
+      do_scroll_x: False
+      do_scroll_y: True
+      GridLayout:
+        id: grid_layout
+        cols: 1
+        spacing: 1
+        size_hint_y: None
+
+        TitleItem:
+          name: "Network Interface"
+        BooleanItem:
+          name: "Enable Wifi"
+          value: root.wifi_enabled
+          help_file: "enable_wifi.md"
+          on_value: root.wifi_enabled = self.value
+        DropDownItem:
+          name: "Network Interface"
+          options: root.devices
+          help_file: "network_connection.md"
+          value: root.devices[0] if len(root.devices) > 0 else ""
+        StringItem:
+          name: "Hardware Address"
+          disabled: True
+          help_file: "network_connection.md"
+          value: root.hwaddr
+        StringItem:
+          name: "State"
+          disabled: True
+          help_file: "network_connection.md"
+          value: root.state
+
+        TitleItem:
+          name: "Connection Properties"
+        ButtonItem:
+          name: "Network"
+          value: root.connection if root.connection is not None else ""
+          disabled: root.lock
+          help_file: "network_connection.md"
+          on_release: Factory.SsidPopup(callback=root.select_network, selected_network=root.connection).open()
+        StringItem:
+          name: "Wifi Password"
+          value: root.password
+          disabled: root.lock
+          help_file: "network_connection.md"
+          on_value: root.password = self.value
+        ButtonItem:
+          name: "Apply configuration"
+          value: "Apply"
+          disabled: root.lock
+          help_file: "network_connection.md"
+          on_release: root.apply()
+
+        TitleItem:
+          name: "IP Properties"
+        StringItem:
+          name: "IP Address"
+          value: root.address
+          disabled: True
+          on_value: root.address = self.value
+        StringItem:
+          name: "DNS Server"
+          value: root.dns
+          disabled: True
+          on_value: root.dns = self.value
+        StringItem:
+          name: "Default Gateway"
+          value: root.gateway
+          disabled: True
+          on_value: root.gateway = self.value
+
+        TitleItem:
+          name: "Error Reporting"
+        BooleanItem:
+          name: "Disable Error Reporting"
+          value: app.formats.disable_error_reporting
+          help_file: "error_reporting.md"
+          on_value: app.formats.disable_error_reporting = self.value
+
+        TitleItem:
+          name: "Status"
+        TextInput:
+          size_hint_y: None
+          height: 160
+          readonly: True
+          multiline: True
+          text: root.status_text

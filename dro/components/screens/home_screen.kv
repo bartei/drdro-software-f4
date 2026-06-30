@@ -1,0 +1,21 @@
+#: import HomeToolbar dro.components.home.home_toolbar
+<Label>:
+  font_name: "fonts/iosevka-regular.ttf"
+
+<Button>:
+  font_name: "fonts/Manrope-Bold.ttf"
+
+<TextInput>:
+  font_name: "fonts/iosevka-regular.ttf"
+
+<HomePage>:
+  BoxLayout:
+    orientation: "horizontal"
+
+    HomeToolbar:
+      id: home_toolbar
+
+    BoxLayout:
+      id: bars_container
+      orientation: "vertical"
+      size_hint: 1, 1

@@ -1,0 +1,95 @@
+#: import NumberItem dro.components.widgets.number_item
+#: import DualNumberItem dro.components.widgets.dual_number_item
+#: import StringItem dro.components.widgets.string_item
+#: import TitleItem dro.components.widgets.title_item
+#: import BooleanItem dro.components.widgets.boolean_item
+
+<ServoScreen>:
+  BoxLayout:
+    title: "Servo Settings"
+    orientation: "vertical"
+    padding: 10
+    ScreenHeader:
+      text: "Servo Settings"
+
+    ScrollView:
+      do_scroll_x: False
+      do_scroll_y: True
+      GridLayout:
+        id: grid_layout
+        cols: 1
+        spacing: 1
+        size_hint_y: None
+        height: self.minimum_height
+
+        TitleItem:
+          name: "Gearing Ratios"
+        NumberItem:
+          disabled: root.servo.elsMode
+          name: "Ratio Numerator"
+          value: root.servo.ratioNum
+          integer: True
+          help_file: "servo_gearing.md"
+          on_value: root.servo.ratioNum = int(self.value)
+        NumberItem:
+          disabled: root.servo.elsMode
+          name: "Ratio Denominator"
+          value: root.servo.ratioDen
+          integer: True
+          help_file: "servo_gearing.md"
+          on_value: root.servo.ratioDen = int(self.value)
+
+        TitleItem:
+          name: "Speeds"
+        NumberItem:
+          name: "Maximum Speed (Steps/s)"
+          value: root.servo.maxSpeed
+          integer: True
+          help_file: "servo_max_speed.md"
+          on_value: root.servo.maxSpeed = int(self.value)
+
+        NumberItem:
+          name: "Acceleration (Steps/s^2)"
+          value: root.servo.acceleration
+          integer: True
+          help_file: "servo_acceleration.md"
+          on_value: root.servo.acceleration = int(self.value)
+
+
+        TitleItem:
+          name: "Rotary Table Mode Settings"
+        NumberItem:
+          disabled: root.servo.elsMode
+          name: "Units per 1 turn of the axis [360]"
+          value: root.servo.unitsPerTurn
+          integer: True
+          help_file: "units_per_turn.md"
+          on_value: root.servo.unitsPerTurn = int(self.value)
+
+
+        TitleItem:
+          name: "ELS Mode Settings"
+        BooleanItem:
+          name: "ELS Mode"
+          value: root.servo.elsMode
+          help_file: "els_mode.md"
+          on_value: root.servo.elsMode = self.value
+        NumberItem:
+          disabled: not root.servo.elsMode
+          name: "Lead Screw Pitch in IN" if root.servo.leadScrewPitchIn else "Lead Screw Pitch in MM"
+          value: root.servo.leadScrewPitch
+          help_file: "lead_screw_pitch.md"
+          on_value: root.servo.leadScrewPitch = self.value
+        BooleanItem:
+          disabled: not root.servo.elsMode
+          name: "Pitch in Inch"
+          value: root.servo.leadScrewPitchIn
+          help_file: "lead_screw_pitch.md"
+          on_value: root.servo.leadScrewPitchIn = self.value
+        NumberItem:
+          disabled: not root.servo.elsMode
+          name: "Lead Screw Pitch Steps"
+          value: root.servo.leadScrewPitchSteps
+          integer: True
+          help_file: "lead_screw_pitch.md"
+          on_value: root.servo.leadScrewPitchSteps = self.value

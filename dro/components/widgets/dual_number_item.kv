@@ -1,0 +1,30 @@
+<DualNumberItem>:
+  value: 0
+  height: 60
+  size_hint_y: None
+  BoxLayout:
+    orientation: "horizontal"
+    Button:
+      size_hint_x: None
+      width: self.height
+      font_name: "fonts/Font Awesome 6 Free-Solid-900.otf"
+      font_size: 21
+      text: "\uf129"
+      disabled: not root.help_file
+      on_release: Factory.HelpPopup.show_help(root.help_file)
+    Label:
+      size_hint_x: 0.6
+      text: root.name
+      font_size: app.formats.font_size
+    Button:
+      size_hint_x: None
+      width: 125
+      text: "{: 0.4f}".format(root.value / root.ratio)
+      font_size: app.formats.font_size
+      on_release: Factory.Keypad().show(root, 'scaled_value')
+    Button:
+      size_hint_x: None
+      width: 125
+      text: "{: 0.4f}".format(root.value)
+      font_size: app.formats.font_size
+      on_release: Factory.Keypad().show(root, 'value')

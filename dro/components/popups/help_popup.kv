@@ -1,0 +1,23 @@
+#: import RstDocument kivy.uix.rst
+
+<HelpPopup>:
+  size_hint: 0.85, 0.85
+  auto_dismiss: True
+
+  BoxLayout:
+    orientation: "vertical"
+    padding: 10
+    spacing: 8
+
+    RstDocument:
+      text: root.help_text
+      background_color: [0.15, 0.15, 0.15, 1]
+      colors:
+        {"background": "272727", "paragraph": "e0e0e0", "title": "ffffff", \
+        "bullet": "cccccc", "link": "6699ff"}
+
+    Button:
+      size_hint_y: None
+      height: 50
+      text: "Close"
+      on_release: root.dismiss()

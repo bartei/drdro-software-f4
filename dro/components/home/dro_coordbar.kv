@@ -1,0 +1,67 @@
+#: import AutoSizeButton dro.components.widgets.auto_size_button
+
+<DroCoordBar>:
+  orientation: "horizontal"
+  size_hint_y: 1
+  Button:
+    width: 96
+    size_hint_x: None
+    text: root.axis.axis_name if root.axis else "?"
+    font_size: min(self.height / 1.5, self.width/1.5)
+    background_color: [0.3, 0.3, 0.3, 1]
+
+  BoxLayout:
+    orientation: "vertical"
+    BoxLayout:
+      orientation: "horizontal"
+      size_hint_y: 0.7
+      AutoSizeButton:
+        id: pos_label
+        background_color: (0, 0, 0, 1)
+        font_name: app.formats.font_name
+        max_font_size: min(self.height / 1.1, self.parent.width/5)
+        font_style: "bold"
+        color: app.formats.display_color
+        text: root.axis.formattedPosition if root.axis else "--"
+        text_size: self.size
+        halign: 'right'
+        valign: 'center'
+        on_release: root.update_position()
+      Label:
+        size_hint_x: None
+        width: self.texture_size[0] + 4
+        font_name: app.formats.font_name
+        font_size: pos_label.font_size / 4
+        color: app.formats.display_color
+        text: root.axis.position_unit if root.axis else ""
+        valign: 'center'
+    BoxLayout:
+      orientation: "horizontal"
+      size_hint_y: 0.3 if app.formats.show_speeds else 0
+      Label:
+        font_name: app.formats.font_name
+        font_size: self.height / 1.5
+        font_style: "bold"
+        color: app.formats.display_color
+        text: root.axis.formattedSpeed if root.axis else "--"
+        text_size: self.size
+        halign: 'right'
+        valign: 'top'
+      Label:
+        size_hint_x: None
+        width: self.texture_size[0] + 4
+        font_name: app.formats.font_name
+        font_size: self.height / 1.5 / 4
+        color: app.formats.display_color
+        text: root.axis.speed_unit if root.axis else ""
+        valign: 'top'
+
+  Button:
+    text: "Zero"
+    font_size: 24
+    font_style: "bold"
+    background_color: [0.5, 0.5, 0.5, 1]
+    width: self.height
+    size_hint_x: None
+    on_press: root.on_zero_press()
+    on_release: root.on_zero_release()

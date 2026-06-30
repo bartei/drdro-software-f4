@@ -1,0 +1,69 @@
+#: import StringItem dro.components.widgets.string_item
+#: import NumberItem dro.components.widgets.number_item
+#: import BooleanItem dro.components.widgets.boolean_item
+
+<UpdateScreen>:
+  formats: app.formats
+  BoxLayout:
+    orientation: "vertical"
+    padding: 10
+    ScreenHeader:
+      text: "Software Update"
+
+    ScrollView:
+      do_scroll_x: False
+      do_scroll_y: True
+      GridLayout:
+        id: grid_layout
+        cols: 1
+        spacing: 1
+        size_hint_y: None
+        height: self.minimum_height
+
+        ButtonItem:
+          height: 60
+          name: "Currently installed release"
+          value: root.current_release
+          help_file: "software_update.md"
+        ButtonItem:
+          height: 60
+          name: "Refresh available releases"
+          value: "Refresh"
+          help_file: "software_update.md"
+          on_release:
+            root.schedule_refresh_releases()
+
+        BooleanItem:
+          height: 60
+          name: "Allow installation of experimental versions"
+          value: root.allow_experimental
+          help_file: "software_update.md"
+          on_value: root.allow_experimental = self.value
+
+        DropDownItem:
+          height: 60
+          name: "Available releases"
+          options: root.releases
+          value: root.selected_release
+          help_file: "software_update.md"
+          on_value: root.selected_release = self.value
+        BoxLayout:
+          height: 60
+          size_hint_y: None
+          orientation: "horizontal"
+          Button:
+            text: "Install Selected Release"
+            disabled: not root.enable_update_button
+            on_release: root.install_release()
+          Button:
+            text: "Exit Application"
+            on_release: app.stop()
+
+        TitleItem:
+          name: "Update Status"
+        TextInput:
+          size_hint_y: None
+          height: 200
+          readonly: True
+          multiline: True
+          text: root.status

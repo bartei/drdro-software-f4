@@ -1,0 +1,160 @@
+#: import Factory kivy.factory.Factory
+#: import Keypad dro.components.popups.keypad
+#: import AutoSizeButton dro.components.widgets.auto_size_button
+
+<ServoBar>:
+  orientation: "horizontal"
+  size_hint_y: None
+  height: 128
+  Button:
+    width: 96
+    size_hint_x: None
+    text: app.servo.name
+    font_size: min(self.height / 1.5, self.width/1.5)
+    font_style: "bold"
+    background_color: [0.2, 1, 0.2, 1] if app.servo.servoEnable else [0.3, 0.3, 0.3, 1]
+    on_release: app.servo.toggle_enable()
+  BoxLayout:
+    orientation: "vertical"
+    size_hint_x: 0.2
+    Label:
+      text: "Current"
+      text_size: self.size
+      size_hint_y: 0.15
+      font_size: 16
+      color: app.formats.display_color
+      halign: 'center'
+      valign: 'top'
+    AutoSizeButton:
+      size_hint_y: 0.30
+      font_name: app.formats.font_name
+      max_font_size: min(self.height / 1.5, self.width/5)
+      font_style: "bold"
+      background_color: [0.2, 0.2, 0.2, 1]
+      color: app.formats.display_color
+      text: app.servo.formattedPosition
+      text_size: self.size
+      halign: 'center'
+      valign: 'middle'
+      disabled: app.servo.disableControls
+      on_release: app.servo.update_current_position()
+    ProgressBar:
+      size_hint_y: 0.20
+      max: int(app.servo.maxSpeed)
+      value: int(abs(app.servo.speed))
+
+  BoxLayout:
+    orientation: "vertical"
+    size_hint_x: 0.2
+    Label:
+      text: "Offset"
+      text_size: self.size
+      size_hint_y: 0.15
+      font_size: 16
+      color: app.formats.display_color
+      halign: 'center'
+      valign: 'top'
+    Button:
+      size_hint_y: 0.35
+      font_name: app.formats.font_name
+      font_size: 32
+      font_style: "bold"
+      background_color: [0.2, 0.2, 0.2, 1]
+      color: app.formats.display_color
+      text: app.formats.angle_format.format(app.servo.offset)
+      text_size: self.size
+      halign: 'center'
+      valign: 'middle'
+      disabled: app.servo.disableControls
+      on_release: Factory.Keypad().show(app.servo, 'offset')
+
+    Label:
+      text: "Divisions"
+      text_size: self.size
+      size_hint_y: 0.15
+      font_size: 16
+      color: app.formats.display_color
+      halign: 'center'
+      valign: 'top'
+    Button:
+      size_hint_y: 0.35
+      font_name: app.formats.font_name
+      font_size: 32
+      font_style: "bold"
+      background_color: [0.2, 0.2, 0.2, 1]
+      color: app.formats.display_color
+      text: str(int(app.servo.divisions))
+      text_size: self.size
+      halign: 'center'
+      valign: 'middle'
+      disabled: app.servo.disableControls
+      on_release: Factory.Keypad(integer=True).show(app.servo, 'divisions')
+
+  BoxLayout:
+    size_hint_x: None
+    width: 200
+    orientation: "vertical"
+    BoxLayout:
+      orientation: "horizontal"
+      Button:
+        font_size: 24
+        font_style: "bold"
+        font_name: "fonts/Font Awesome 6 Free-Solid-900.otf"
+        text: "\uf060"
+        disabled: app.servo.disableControls
+        on_release: app.servo.go_previous()
+      Button:
+        font_size: 24
+        font_style: "bold"
+        font_name: "fonts/Font Awesome 6 Free-Solid-900.otf"
+        text: "\uf061"
+        disabled: app.servo.disableControls
+        on_release: app.servo.go_next()
+    BoxLayout:
+      orientation: "horizontal"
+      BoxLayout:
+        orientation: "vertical"
+        Label:
+          text: "Index"
+          text_size: self.size
+          size_hint_y: 0.15
+          font_size: 16
+          color: app.formats.display_color
+          halign: 'center'
+          valign: 'top'
+        Button:
+          size_hint_y: 0.35
+          font_name: app.formats.font_name
+          font_size: 32
+          font_style: "bold"
+          background_color: [0.2, 0.2, 0.2, 1]
+          color: app.formats.display_color
+          text: str(int(app.servo.index))
+          text_size: self.size
+          halign: 'center'
+          valign: 'middle'
+          disabled: app.servo.disableControls
+          on_release: Factory.Keypad(integer=True).show(app.servo, 'index')
+      BoxLayout:
+        orientation: "vertical"
+        Label:
+          text: "Speed"
+          text_size: self.size
+          size_hint_y: 0.15
+          font_size: 16
+          color: app.formats.display_color
+          halign: 'center'
+          valign: 'top'
+        Button:
+          size_hint_y: 0.35
+          font_name: app.formats.font_name
+          font_size: 32
+          font_style: "bold"
+          background_color: [0.2, 0.2, 0.2, 1]
+          color: app.formats.display_color
+          text: str(int(app.servo.indexSpeed))
+          text_size: self.size
+          halign: 'center'
+          valign: 'middle'
+          disabled: app.servo.disableControls
+          on_release: Factory.Keypad(integer=True).show(app.servo, 'indexSpeed', min_value=int(app.servo.maxSpeed * 0.05), max_value=int(app.servo.maxSpeed))

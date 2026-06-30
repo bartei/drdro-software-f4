@@ -1,0 +1,70 @@
+from kivy.factory import Factory
+from kivy.logger import Logger
+from kivy.properties import StringProperty, ObjectProperty, NumericProperty
+from kivy.uix.boxlayout import BoxLayout
+from pydantic import BaseModel
+
+from dro import feeds
+from dro.dispatchers.saving_dispatcher import SavingDispatcher
+from dro.utils.kv_loader import load_kv
+
+
+class FeedMode(BaseModel):
+    id: int
+    name: str
+
+log = Logger.getChild(__name__)
+load_kv(__file__)
+
+
+class ElsBar(BoxLayout, SavingDispatcher):
+    feed_button = ObjectProperty(None)
+    feed_ratio = ObjectProperty(None)
+
+    mode_name = StringProperty(":(")
+    feed_name = StringProperty(":(")
+    current_feeds_index = NumericProperty(0)
+
+    _skip_save = [
+        "position",
+        "x", "y",
+        "minimum_width",
+        "minimum_height",
+        "width", "height",
+    ]
+
+    def __init__(self, **kwargs):
+        from dro.app import MainApp
+        self.app: MainApp = MainApp.get_running_app()
+        super().__init__(**kwargs)
+        if not self.mode_name in feeds.table.keys():
+            self.mode_name = next(iter(feeds.table.keys()))
+        self.current_feeds_table = feeds.table[self.mode_name]
+        self.update_feeds_ratio(self, None)
+        self.bind(current_feeds_index=self.update_feeds_ratio)
+
+    def update_current_position(self):
+        Factory.Keypad().show_with_callback(self.app.servo.set_current_position, self.app.servo.scaledPosition)
+
+    def set_feed_ratio(self, table_name, index):
+        table_instance = feeds.table[table_name]
+        self.mode_name = table_name
+        self.current_feeds_table = table_instance
+        self.current_feeds_index = index
+
+    def update_feeds_ratio(self, instance, value):
+        ratio = self.current_feeds_table[self.current_feeds_index].ratio
+        spindle_axis = self.app.board.get_spindle_axis()
+        if spindle_axis is not None:
+            spindle_axis.syncRatioNum = ratio.numerator
+            spindle_axis.syncRatioDen = ratio.denominator
+        self.feed_name = self.current_feeds_table[self.current_feeds_index].name
+        log.info(f"Configured ratio is: {ratio.numerator}/{ratio.denominator}")
+
+    def next_feed(self):
+        if self.current_feeds_index < len(self.current_feeds_table) -1:
+            self.current_feeds_index = (self.current_feeds_index + 1)
+
+    def previous_feed(self):
+        if self.current_feeds_index > 0:
+            self.current_feeds_index = (self.current_feeds_index - 1)

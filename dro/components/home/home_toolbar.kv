@@ -1,0 +1,48 @@
+#: import ToolbarButton dro.components.toolbars.toolbar_button
+#: import Factory kivy.factory.Factory
+#: import Keypad dro.components.popups.keypad
+#: import ModePopup dro.components.popups.mode_popup
+
+<HomeToolbar>:
+  orientation: "vertical"
+  width: self.height / 6
+  size_hint_x: None
+  size_hint_y: 1
+
+  ToolbarButton:
+    width: root.width
+    text: app.formats.current_format
+    on_release: app.formats.toggle()
+
+  ToolbarButton:
+    width: root.width
+    text: "P{:d}".format(app.currentOffset)
+    on_release: Factory.Keypad().show(app, 'currentOffset')
+
+  ToolbarButton:
+    width: root.width
+    text: "ABS" if app.abs_mode else "INC"
+    background_color: (list(app.formats.color_on) if app.board.blink else [1, 1, 1, 1]) if app.abs_mode else [1, 1, 1, 1]
+    on_release: app.abs_mode = not app.abs_mode
+
+  ToolbarButton:
+    id: wizard_button
+    width: root.width
+    font_name: "fonts/Font Awesome 6 Free-Solid-900.otf"
+    text: "\ue2ca"
+    on_press: app.manager.goto("plot")
+
+  ToolbarButton:
+    width: root.width
+    text: root.current_mode_desc
+    on_release:
+      Factory.ModePopup().show_with_callback(app.set_mode, app.current_mode)
+
+  ToolbarButton:
+    width: root.width
+    font_name: "fonts/Font Awesome 6 Free-Solid-900.otf"
+    text: "\uf085"
+    on_press: app.manager.goto("setup_screen")
+
+  Widget:
+    size_hint_y: 1

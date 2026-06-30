@@ -56,19 +56,20 @@ land; keep the design doc as the source of truth. **D2/D3/D4/D5 confirmed; D1 de
 - [x] On UI change of `servo.max/acc/jog`: `set` + debounced `save` (`Board.write_persisted`)
 - [x] `scales.num/den`: derived in Python, `set` on connect/change, **never `save`** (D4)
 - [x] `scales.sync` / `servo.mode`: read-on-connect to sync UI; `set` on change; not saved (D5)
-- [ ] Drop Modbus `address` from `config.ini` — with the app shell (Phase 4); client has no address
+- [x] Dropped Modbus `address` from `config.ini` (client has no addressing)
 
-## Phase 4 — UI feature parity port (1:1)
-- [ ] Screens (18) + `.kv` — see design §F
-- [ ] Home modes + bars (Index/ELS/Jog/DRO, coordbar/servobar/elsbar/jogbar/statusbar)
-- [ ] Popups (keypad/help/mode/feeds/ssid)
-- [ ] Widgets (number/dual_number/boolean/dropdown/string/color/font/button/title/…)
-- [ ] Plot (scene/float_view/coords_overlay/toolbar + circle/line/rect popups)
-- [ ] Pattern dispatchers + `axis_transform` + `formats` + `els` + `saving_dispatcher`
-- [ ] Platform utils (`platform.py`, `kv_loader.py`), `feeds.py`, help `.rst`, fonts
-- [ ] `app.py` / `main.py` / `manager.py` / `appsettings.py`
-- [ ] Keep RCP git/pip self-update screen (D7)
-- [ ] Parity pass: every RCP screen/feature exercised on hardware
+## Phase 4 — UI feature parity port (1:1) — built & rendering 2026-06-29
+- [x] Screens (19) + `.kv` ported; Manager instantiates them all at startup
+- [x] Home modes + bars (Index/ELS/Jog/DRO, coordbar/servobar/elsbar/jogbar/statusbar)
+- [x] Popups (keypad/help/mode/feeds/ssid), Widgets (number/dual/boolean/dropdown/…), Plot (+circle/line/rect)
+- [x] Pattern dispatchers (circle/line/rect) + `axis_transform` + `formats` + `els` + `saving_dispatcher`
+- [x] Platform utils (`platform.py`, `kv_loader.py`), `feeds.py`, help `.rst`, fonts/pictures/sounds
+- [x] `app.py` (resource paths, serial cfg → Board, `board.start()`) / `main.py` / `manager.py` / `appsettings.py`
+- [x] Kept RCP git/pip self-update screen (D7 — both updaters coexist)
+- [x] `rcp.`→`dro.` rewrite incl. bare KV `#: import` targets; `~/.config/drdro-software` config dir
+- [x] **App builds & renders headless (Xvfb+SDL2/GL)**: all 19 screens instantiate, 51 KV files load,
+      home screen renders live against the board (screenshot). Package version v0.1.0 shown.
+- [ ] Interactive parity pass (navigate every screen, popups, live motion) — best on a real desktop
 
 ## Phase 5 — Firmware update & bank management (new feature)
 - [ ] `dro/comms/ymodem.py` (YMODEM sender; port from `dro_update.py`)
