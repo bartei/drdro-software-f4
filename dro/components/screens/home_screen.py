@@ -27,8 +27,11 @@ class HomePage(Screen):
         super().__init__(**kv)
 
         self.bars_container = self.ids['bars_container']
+        # The debug ribbon is opt-in (Stats screen). Show/hide it with the setting and tell
+        # the board so it only polls diag.* metrics while the ribbon is actually visible.
         self.status_bar = StatusBar()
-        self.bars_container.add_widget(self.status_bar)
+        self._apply_ribbon(None, self.app.formats.show_stats_ribbon)
+        self.app.formats.bind(show_stats_ribbon=self._apply_ribbon)
 
         # Create shared ElsBar (has SavingDispatcher state)
         self.els_bar = ElsBar(id_override="0")
@@ -52,6 +55,17 @@ class HomePage(Screen):
         self.app.bind(current_mode=self.change_mode)
         self.app.bind(axes=self._on_axes_changed)
         self.change_mode(self, self.next_mode)
+
+    def _apply_ribbon(self, instance, value):
+        """Show/hide the top debug ribbon and gate the board's diag polling to match."""
+        shown = bool(value)
+        self.app.board.ribbon_visible = shown
+        parented = self.status_bar.parent is not None
+        if shown and not parented:
+            # index = len(children) puts it at the top of the vertical bars container.
+            self.bars_container.add_widget(self.status_bar, index=len(self.bars_container.children))
+        elif not shown and parented:
+            self.bars_container.remove_widget(self.status_bar)
 
     def _on_axes_changed(self, instance, value):
         """Rebuild axis bars in all mode layouts when the axes list changes."""

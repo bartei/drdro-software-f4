@@ -1,0 +1,68 @@
+#: import ButtonItem dro.components.widgets.button_item
+#: import BooleanItem dro.components.widgets.boolean_item
+
+<StatsScreen>:
+  BoxLayout:
+    orientation: "vertical"
+    padding: 10
+
+    ScreenHeader:
+      text: "Stats for nerds"
+
+    ScrollView:
+      do_scroll_x: False
+      do_scroll_y: True
+      GridLayout:
+        cols: 1
+        spacing: 1
+        size_hint_y: None
+        height: self.minimum_height
+
+        TitleItem:
+          name: "Versions"
+        ButtonItem:
+          height: 60
+          name: "Software version"
+          value: root.sw_version
+        ButtonItem:
+          height: 60
+          name: "Firmware version"
+          value: root.fw_version
+
+        TitleItem:
+          name: "Communication"
+        ButtonItem:
+          height: 60
+          name: "Link state"
+          value: root.connected
+        ButtonItem:
+          height: 60
+          name: "Comm refresh rate (sta)"
+          value: root.comm_rate
+        ButtonItem:
+          height: 60
+          name: "Comm errors (total)"
+          value: root.errors
+
+        TitleItem:
+          name: "Rates"
+        ButtonItem:
+          height: 60
+          name: "UI frame rate"
+          value: root.fps
+        ButtonItem:
+          height: 60
+          name: "Board loop rate"
+          value: root.board_rate
+        ButtonItem:
+          height: 60
+          name: "Board cycles"
+          value: root.cycles
+
+        TitleItem:
+          name: "Display"
+        BooleanItem:
+          height: 60
+          name: "Show top ribbon on home"
+          value: root.show_ribbon
+          on_value: root.set_ribbon(self.value)

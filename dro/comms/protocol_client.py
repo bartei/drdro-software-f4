@@ -193,6 +193,7 @@ class ProtocolClient:
 
         self._connected = False
         self._error_count = 0
+        self.error_total = 0                          # cumulative comm errors (for the Stats screen)
         self._last_error: str | None = None
 
     # ── connection state (mirrors the old ConnectionManager semantics) ──
@@ -212,6 +213,7 @@ class ProtocolClient:
     def _mark_error(self, message: str) -> None:
         self._last_error = message
         self._error_count += 1
+        self.error_total += 1
         if self._connected and self._error_count >= self.max_errors:
             self._connected = False
             log.warning(

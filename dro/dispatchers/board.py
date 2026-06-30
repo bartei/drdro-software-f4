@@ -77,6 +77,13 @@ class Board(EventDispatcher):
         self._paused = False                           # firmware update yields the bus
         self.comm_rate = 0.0                           # measured `sta` polls/sec (EMA)
         self._last_poll_t: float | None = None
+        self.firmware_version = ""                     # cached on connect (for the Stats screen)
+        # Diag (`diag.cycles`/`diag.interval`) is only polled when something displays it —
+        # the top ribbon or the Stats screen — so a normal session does no extra round-trips.
+        self.ribbon_visible = False
+        self.stats_active = False
+        self.diag_cycles = 0                           # last diag.cycles / diag.interval
+        self.diag_interval = 0                         # (kept separate so sta polls don't wipe them)
         self._diag_counter = 0
         self._save_task: asyncio.Task | None = None
         self._tasks: set[asyncio.Task] = set()
@@ -158,22 +165,29 @@ class Board(EventDispatcher):
         self._last_poll_t = now
 
     async def _poll_diag(self) -> None:
-        """Low-rate diag read (statusbar) — ~once per second, folded into the poll loop."""
+        """Low-rate diag read (statusbar) — ~once per second, folded into the poll loop.
+        Skipped entirely unless the ribbon or Stats screen is showing it."""
+        if not (self.ribbon_visible or self.stats_active):
+            return
         self._diag_counter += 1
         if self._diag_counter * self._poll_period < 1.0:
             return
         self._diag_counter = 0
-        for name in ("diag.cycles", "diag.interval"):
-            r = await self.connection.get(name)
-            if r.crc_ok:
-                key = "cycles" if name == "diag.cycles" else "executionInterval"
-                self.fast_data_values[key] = r.as_int(name) or 0
+        rc = await self.connection.get("diag.cycles")
+        if rc.crc_ok:
+            self.diag_cycles = rc.as_int("diag.cycles") or 0
+        ri = await self.connection.get("diag.interval")
+        if ri.crc_ok:
+            self.diag_interval = ri.as_int("diag.interval") or 0
 
     async def _refresh_settings(self) -> None:
         r = await self.connection.settings()
         if r.crc_ok:
             self._settings = r
             log.info("Loaded board settings snapshot (%d vars)", len(r.values))
+        v = await self.connection.command("version")
+        if v.crc_ok and v.text("version"):
+            self.firmware_version = v.text("version")
 
     # ── write / read facade used by the dispatchers ─────────────────
     def write(self, name: str, value, idx: int | None = None) -> None:

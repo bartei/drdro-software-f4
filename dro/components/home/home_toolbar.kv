@@ -1,11 +1,13 @@
 #: import ToolbarButton dro.components.toolbars.toolbar_button
+#: import LedButton dro.components.toolbars.led_button
 #: import Factory kivy.factory.Factory
 #: import Keypad dro.components.popups.keypad
 #: import ModePopup dro.components.popups.mode_popup
 
 <HomeToolbar>:
   orientation: "vertical"
-  width: self.height / 6
+  # 6 square buttons + a bottom status block (COM + version, one button tall) = 7 slots.
+  width: self.height / 7
   size_hint_x: None
   size_hint_y: 1
 
@@ -28,8 +30,12 @@
   ToolbarButton:
     id: wizard_button
     width: root.width
+    # Collapse (no space) when the wizard is disabled in Formats.
+    height: self.width if app.formats.show_wizard else 0
+    opacity: 1 if app.formats.show_wizard else 0
+    disabled: not app.formats.show_wizard
     font_name: "fonts/Font Awesome 6 Free-Solid-900.otf"
-    text: "\ue2ca"
+    text: ""
     on_press: app.manager.goto("plot")
 
   ToolbarButton:
@@ -41,8 +47,21 @@
   ToolbarButton:
     width: root.width
     font_name: "fonts/Font Awesome 6 Free-Solid-900.otf"
-    text: "\uf085"
+    text: ""
     on_press: app.manager.goto("setup_screen")
 
   Widget:
     size_hint_y: 1
+
+  # Bottom status block (one button tall): COM indicator + running software version.
+  BoxLayout:
+    orientation: "vertical"
+    size_hint: None, None
+    width: root.width
+    height: root.width
+    LedButton:
+      label: "COM"
+      checkbox_value: app.board.connected or app.board.blink
+    LedButton:
+      label: app.version
+      checkbox_value: app.board.connected

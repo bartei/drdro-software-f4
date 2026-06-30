@@ -18,19 +18,18 @@ class StatusBar(BoxLayout):
     def __init__(self, **kv):
         from dro.app import MainApp
         self.app: MainApp = MainApp.get_running_app()
+        self._ev = None
         super().__init__(**kv)
-        Clock.schedule_interval(self.update, 1.0 / 5)
+
+    def on_parent(self, instance, parent):
+        # Only tick while actually mounted — a hidden ribbon does no work.
+        if parent is not None and self._ev is None:
+            self._ev = Clock.schedule_interval(self.update, 1.0 / 5)
+        elif parent is None and self._ev is not None:
+            self._ev.cancel()
+            self._ev = None
 
     def update(self, *args, **kv):
         self.fps = Clock.get_fps()
         self.comm_rate = self.app.board.comm_rate
-        if not self.app.board.connected:
-            return
-
-        if self.app.board.fast_data_values is None:
-            # There is no connection yet
-            return
-        try:
-            self.cycles = self.app.board.fast_data_values['cycles']
-        except Exception as e:
-            log.debug(str(e), exc_info=True)
+        self.cycles = self.app.board.diag_cycles
