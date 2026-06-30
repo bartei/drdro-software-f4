@@ -2,6 +2,11 @@
 #: import BooleanItem dro.components.widgets.boolean_item
 #: import DropDownItem dro.components.widgets.dropdown_item
 
+<BankToggle@ToggleButton>:
+  group: "bootbank"
+  allow_no_selection: False
+  font_size: app.formats.font_size
+
 <FirmwareScreen>:
   BoxLayout:
     orientation: "vertical"
@@ -19,58 +24,81 @@
         size_hint_y: None
         height: self.minimum_height
 
+        # ── Status ──────────────────────────────────────────────
+        TitleItem:
+          name: "Firmware status"
         ButtonItem:
           height: 60
           name: "Current firmware version"
           value: root.current_version
           on_release: root.refresh_status()
-
         ButtonItem:
           height: 60
           name: "Currently active bank"
           value: root.active_bank_text
           on_release: root.refresh_status()
 
-        DropDownItem:
+        # ── Boot selection ──────────────────────────────────────
+        TitleItem:
+          name: "Boot selection"
+        BoxLayout:
+          size_hint_y: None
           height: 60
-          name: "Boot bank (next reboot)"
-          options: ["0", "1"]
-          value: root.boot_bank
-          on_value: root.set_bank(self.value)
-
+          Widget:
+            size_hint_x: None
+            width: 60
+          Label:
+            size_hint_x: 0.7
+            text: "Boot bank (next reboot)"
+            font_size: app.formats.font_size
+          BoxLayout:
+            size_hint_x: None
+            width: 250
+            spacing: 2
+            BankToggle:
+              text: "Bank 0"
+              state: "down" if root.boot_bank == "0" else "normal"
+              on_release: root.set_bank("0")
+            BankToggle:
+              text: "Bank 1"
+              state: "down" if root.boot_bank == "1" else "normal"
+              on_release: root.set_bank("1")
         ButtonItem:
           height: 60
           name: "Reboot firmware now"
           value: "Reset"
           on_release: root.do_reset()
 
+        # ── Install from GitHub ─────────────────────────────────
+        TitleItem:
+          name: "Install from GitHub"
         ButtonItem:
           height: 60
           name: "Refresh available versions"
           value: "Refresh"
           on_release: root.refresh_releases()
-
         BooleanItem:
           height: 60
           name: "Allow pre-releases"
           value: root.include_prerelease
           on_value: root.include_prerelease = self.value
-
         DropDownItem:
           height: 60
           name: "Available firmware"
           options: root.version_options
           value: root.selected_tag
           on_value: root.select_version(self.value)
-
         BoxLayout:
           size_hint_y: None
           height: 60
+          padding: 4
           Button:
             text: "Install Selected Firmware" if not root.busy else "Updating…"
             disabled: root.busy or not root.selected_tag
+            font_size: app.formats.font_size
             on_release: root.install_selected()
 
+        # ── Progress ────────────────────────────────────────────
         TitleItem:
           name: "Upload progress"
         ProgressBar:
@@ -79,11 +107,13 @@
           max: 1.0
           value: root.progress
 
+        # ── Activity log ────────────────────────────────────────
         TitleItem:
-          name: "Status"
+          name: "Activity log"
         TextInput:
           size_hint_y: None
-          height: 180
+          height: 160
           readonly: True
           multiline: True
+          font_size: app.formats.font_size
           text: root.status_text

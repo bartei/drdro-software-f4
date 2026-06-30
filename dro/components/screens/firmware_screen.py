@@ -79,7 +79,10 @@ class FirmwareScreen(Screen):
 
     # ── bank selector / reset ────────────────────────────────────────
     def set_bank(self, value: str):
-        if value in ("0", "1") and value != self.active_bank_text:
+        if value not in ("0", "1"):
+            return
+        self.boot_bank = value                       # reflect the selection immediately
+        if value != self.active_bank_text:
             self._spawn(self._set_bank(int(value)))
 
     async def _set_bank(self, bank: int):
