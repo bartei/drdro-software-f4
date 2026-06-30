@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+
+# uv
+# (uv.lock IS committed — do not ignore it)
+
+# Unit test / coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+.pytest_cache/
+
+# Logs / traces
+*.log
+*.trace
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
