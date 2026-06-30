@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.3 (2026-06-30)
+
+### Bug Fixes
+
+- **servo**: Jog no longer triggers a flash save (200 ms position stall)
+  ([`3bc2cd9`](https://github.com/bartei/drdro-software-f4/commit/3bc2cd91b31922fdd8783d9bde20a3eaa466d23d))
+
+
 ## v1.1.2 (2026-06-30)
 
 ### Performance Improvements

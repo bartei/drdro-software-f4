@@ -1,6 +1,6 @@
 [project]
 name = "drdro-software"
-version = "1.1.2"
+version = "1.1.3"
 description = "drDRO host software — Kivy DRO/controller UI for the drDRO rotary-controller board (RS485 line protocol)"
 authors = [
     { name = "Stefano Bertelli", email = "stefano.bertelli@thinkalpha.io" }
