@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Kivy is imported by the dispatcher layer; these let it import headless in CI.
+      - name: Install headless Kivy deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libsdl2-2.0-0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run tests
+        env:
+          KIVY_NO_ARGS: "1"
+        run: uv run pytest -q
