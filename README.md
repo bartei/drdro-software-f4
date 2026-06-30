@@ -73,4 +73,4 @@ dro/
 
 ## License
 
-MIT. See `LICENSE`.
+GPL-3.0-or-later. See `LICENSE`.

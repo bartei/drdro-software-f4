@@ -16,11 +16,17 @@ them with @mainthread).
 """
 from __future__ import annotations
 
+import ssl
 import time
 
 import aiohttp
+import certifi
 
 from dro.comms.ymodem import ymodem_send
+
+# Verify TLS against certifi's CA bundle — robust across platforms (notably NixOS, where
+# Python doesn't pick up the system CA store automatically).
+_SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
 GITHUB_REPO = "bartei/drdro-firmware-f4"
 APP_ASSET = "drdro-app.bin"
@@ -126,7 +132,8 @@ class FirmwareUpdater:
     # ---- GitHub releases ----
     async def list_releases(self, include_prerelease: bool = False) -> list[dict]:
         async with aiohttp.ClientSession() as s:
-            async with s.get(RELEASES_URL, headers={"Accept": "application/vnd.github+json"}) as r:
+            async with s.get(RELEASES_URL, ssl=_SSL_CTX,
+                             headers={"Accept": "application/vnd.github+json"}) as r:
                 r.raise_for_status()
                 data = await r.json()
         out = []
@@ -151,7 +158,7 @@ class FirmwareUpdater:
 
     async def download_asset(self, url: str, dest: str, on_progress=None) -> str:
         async with aiohttp.ClientSession() as s:
-            async with s.get(url) as r:
+            async with s.get(url, ssl=_SSL_CTX) as r:
                 r.raise_for_status()
                 total = int(r.headers.get("Content-Length", 0))
                 got = 0

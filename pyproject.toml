@@ -6,10 +6,11 @@ authors = [
     { name = "Stefano Bertelli", email = "stefano.bertelli@thinkalpha.io" }
 ]
 requires-python = ">=3.10,<4.0"
-license = "MIT"
+license = "GPL-3.0-or-later"
 readme = "README.md"
 dependencies = [
     "cachetools>=5.5.0",
+    "certifi>=2024.0.0",
     "keke>=0.1.4",
     "kivy>=2.3.0",
     "pyserial>=3.5",

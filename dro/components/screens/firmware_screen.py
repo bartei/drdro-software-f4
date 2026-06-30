@@ -144,6 +144,11 @@ class FirmwareScreen(Screen):
                 tmp, on_progress=self._set_progress, on_status=self._status,
             )
             self._set_progress(1.0)
+            # The poll loop reconnects a moment after boot; wait for it, then refresh.
+            for _ in range(15):
+                if self.app.board.connected:
+                    break
+                await asyncio.sleep(0.3)
             await self._refresh_status()
             self._status(f"Update complete (bank {res.get('bank')}, version {res.get('version')})")
         except Exception as e:                        # noqa: BLE001 — report any failure to the UI

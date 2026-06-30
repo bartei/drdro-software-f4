@@ -474,11 +474,12 @@ wheels = [
 
 [[package]]
 name = "drdro-software"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "cachetools" },
+    { name = "certifi" },
     { name = "keke" },
     { name = "kivy" },
     { name = "nmcli" },
@@ -499,6 +500,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.9.0" },
     { name = "cachetools", specifier = ">=5.5.0" },
+    { name = "certifi", specifier = ">=2024.0.0" },
     { name = "keke", specifier = ">=0.1.4" },
     { name = "kivy", specifier = ">=2.3.0" },
     { name = "nmcli", specifier = ">=1.5.0" },
