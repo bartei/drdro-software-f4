@@ -1,17 +1,22 @@
 # drDRO Software — Migration & Port Todo
 
 Phased one-liner tracker. Detail & rationale in `migration_design.md`. Tick `[x]` as items
-land; keep the design doc as the source of truth. **Nothing started — review the design and
-resolve the open decisions (D1–D7) first.**
+land; keep the design doc as the source of truth. **D2/D3/D4/D5 confirmed; D1 defaulted to
+`dro`; D7 (firmware-update source) deferred to Phase 5.**
 
 ## Phase 0 — Decisions & repo init
 - [x] uv project scaffold (`pyproject.toml`, `.python-version`, `.gitignore`, `dro/` package)
 - [x] Draft design doc + this tracker
-- [ ] Resolve open decisions D1–D7 (design doc §Open decisions)
-- [ ] Port `CLAUDE.md` coding standards from RCP (kivy.logger, naming, KV pattern)
-- [ ] Port `README.md` (host app overview + build/run)
-- [ ] `master` → `main`; first commit; `uv sync` green
+- [x] Port `CLAUDE.md` coding standards from RCP (kivy.logger, naming, KV pattern)
+- [x] Port `README.md` (host app overview + build/run)
+- [x] `master` → `main`; first commit; `uv lock` green
+- [x] Resolve key decisions: D2 (extend `sta`), D3 (asyncio queue), D4 (ratios in Python),
+      D5/D6 (firmware = source of truth for persisted settings). D1=`dro`; D7 deferred.
 - [ ] Confirm package name (D1) and apply `rcp.` → `dro.` rename convention
+
+## Phase 0b — Cross-repo firmware prerequisite (drdro-firmware-f4)
+- [ ] Extend firmware `sta` to also emit `servo.tgt` + `servo.mode` (one `respKV` pair + native
+      test) — needed before Phase 2 fast loop is finalized. **Tracked in the firmware repo.**
 
 ## Phase 1 — Protocol client (driver replacement core)
 - [ ] `dro/comms/protocol_client.py`: `serial.Serial` owner, framed request/response
@@ -21,26 +26,25 @@ resolve the open decisions (D1–D7) first.**
 - [ ] `save` / `load` (board flash)
 - [ ] Optional `*HH` request checksum (off by default)
 - [ ] `MAX_ERROR_COUNT` resilience / connected-state semantics
-- [ ] Bus serialization (D3): single outstanding command at a time
+- [ ] Bus serialization (D3): asyncio lock-guarded command queue; never block the Kivy loop
 - [ ] Unit tests against captured wire frames (mock serial) — mirror firmware `test_protocol`
 - [ ] Keep `dro/utils/ctype_calc.py`; delete the Modbus parser path
 
-## Phase 2 — Dispatchers re-pointed to the protocol
+## Phase 2 — Dispatchers re-pointed to the protocol (needs Phase 0b firmware `sta`)
 - [ ] `board.py`: `ProtocolClient` instead of `ConnectionManager`; `update` loop polls `sta`
-- [ ] Fast-poll mapping per D2 (`sta` → `scales.pos/speed`, `servo.pos/speed` + tgt/mode)
+- [ ] Fast-poll: single-round-trip `sta` → `scales.pos/speed`, `servo.pos/speed`, `servo.tgt`, `servo.mode`
 - [ ] `servo.py`: `maxSpeed/acc/jog`→`servo.max/acc/jog`; `direction`→`servo.tgt`; `servoEnable`→`servo.mode`
 - [ ] `axis.py`: `_set_sync_ratio` → `set scales.num/den`; `toggle_sync` → `set scales.sync`
 - [ ] `input.py`: scale position/speed from `sta` mapping
 - [ ] `statusbar`: `diag.cycles` / `diag.interval` via low-rate `get`
 - [ ] Verify identical UI behaviour vs RCP on the bench
 
-## Phase 3 — Settings: board flash vs host (stop push-on-reconnect)
-- [ ] On connect: read board settings (`settings`/`get`) into dispatchers (no push)
+## Phase 3 — Settings: firmware = source of truth (stop push-on-reconnect)
+- [ ] On connect: **read** persisted settings (`servo.max/acc/jog`) from board → sync Python (no push)
 - [ ] Remove `on_connected` push of `maxSpeed`/`acceleration`; replace with read-back
-- [ ] `save`-on-change (debounced) for the persisted subset (D.3 table)
-- [ ] Re-`set`+`save` `scales.num/den` on unit (MM/IN) or sync-ratio change (D.4 caveat)
-- [ ] Source-of-truth reconciliation on mismatch (D6)
-- [ ] Decide & wire `scales.sync` / `servo.mode` persistence (D5)
+- [ ] On UI change of `servo.max/acc/jog`: `set` + `save` (debounced)
+- [ ] `scales.num/den`: derive in Python, `set` on connect/change, **never `save`** (D4)
+- [ ] `scales.sync` / `servo.mode`: read-on-connect to sync UI; `set` on change; not saved (D5)
 - [ ] Drop Modbus `address` from `config.ini`
 
 ## Phase 4 — UI feature parity port (1:1)

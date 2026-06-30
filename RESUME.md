@@ -85,35 +85,41 @@ already implemented host-side in `../drdro-firmware-f4/tools/dro_update.py` — 
 (+ board-control fields the host doesn't own). Ping-pong A/B sectors, magic+CRC32, power-fail
 safe, motion-safe `save`.
 
-## Two findings that shape the work
+## Decisions — CONFIRMED (2026-06-29)
 
-1. **`sta` poll gap (Decision D2):** the 30 Hz loop also needs `servo.tgt` (move done?) and
-   `servo.mode` (enable state), which `sta` doesn't return. Options: (a) tiny firmware PR to
-   add both to `sta` — recommended; (b) per-tick extra `get`s; (c) low-rate poll.
-2. **Settings dynamic-ratio caveat (design §D.4):** `scales.num/den` is **not static** — RCP
-   derives it from mechanical params **× MM/IN factor**, so it changes on unit/ratio edits.
-   "Store on board" = board keeps last-applied values (no re-push on reconnect); host
-   re-`set`+`save`s only on the deliberate user edit. Mechanical calibration, transforms,
-   offsets, and UI prefs stay host-side. Full table in §D.3.
+- **D2 — Fast poll:** **extend firmware `sta`** to also emit `servo.tgt` + `servo.mode`, so the
+  30 Hz loop is a single round-trip. ⚑ **Cross-repo prerequisite** in `drdro-firmware-f4` (one
+  extra `respKV` pair + native test) — must land before Phase 2's fast loop is final.
+- **D3 — Bus serialization:** **`asyncio`, lock-guarded command queue** in `ProtocolClient`.
+  Never blocks the Kivy loop (Kivy already runs under asyncio via `async_run`). `sta` benches
+  >100 Hz → headroom to interleave `set`/`get`/`save` between polls.
+- **D4 — Dynamic ratios stay in Python:** `scales.num/den` are unit-dependent, frequently
+  changing ratio math → Python owns them, `set`s live on connect/change, **never `save`s** to
+  flash. (So ratios *are* re-pushed on connect — intentional.)
+- **D5/D6 — Persisted settings, firmware = source of truth:** `servo.max/acc/jog` live on the
+  board. On connect **READ** them and sync Python (no push, replaces today's `on_connected`
+  push); on UI change `set`+`save` (debounced). `scales.sync`/`servo.mode` are read-on-connect
+  live state, set on change, not saved.
 
-## Open decisions to resolve before Phase 1 (design doc §Open decisions)
+## Open / deferred decisions
 
-- **D1** package name `dro` vs keep `rcp` *(proposed: `dro`)*
-- **D2** fast-poll: extend firmware `sta` / extra gets / low-rate *(proposed: extend `sta`)*
-- **D3** bus serialization: dedicated thread vs asyncio lock-queue *(proposed: thread+queue)*
-- **D4** firmware `.bin` source: local file / GitHub releases / both *(proposed: both)*
-- **D5** persist `scales.sync`/`servo.mode` or live-only *(proposed: live-only)*
-- **D6** settings source-of-truth on mismatch *(proposed: board wins for persisted subset)*
-- **D7** keep RCP's git/pip self-update screen alongside firmware updater *(proposed: keep both)*
+- **D1** package name: `dro` applied in scaffold (vs keep `rcp` to zero-diff). Confirm if you'd
+  rather keep `rcp`. *(default: `dro`)*
+- **D7** firmware-update `.bin` source + whether to keep RCP's git/pip self-update screen:
+  **deferred to Phase 5** — get the protocol working first. *(leaning: local file + GitHub; keep both)*
 
-## Next steps (Phase 1 starts here once decisions land)
+## Next steps (Phase 1)
 
-1. Move D1–D7 to "Confirmed decisions" in `docs/migration_design.md`; apply package-name choice.
-2. Build `dro/comms/protocol_client.py` (framed request/response, crc verify, turnaround-glitch
-   retry — port from `tools/dro_update.py`). Add `dro/comms/ymodem.py` + `updater.py` (Phase 5).
-3. Re-point `dispatchers/board.py` + servo/axis/input to the protocol (mapping table in §C.3).
-4. Settings: read board on connect (no push); `save`-on-change. Then UI parity port.
-5. See `docs/migration_todo.md` for the full Phase 1–6 checklist.
+1. (Optional) confirm D1; apply `rcp.` → `dro.` rename convention.
+2. ⚑ Land the firmware `sta` extension in `drdro-firmware-f4` (Phase 0b) — coordinate before
+   finalizing the Phase 2 fast loop.
+3. Build `dro/comms/protocol_client.py`: **asyncio lock-guarded command queue**, framed
+   request/response, crc verify, turnaround-glitch retry — port from `tools/dro_update.py`.
+   (YMODEM `ymodem.py` + `updater.py` come in Phase 5.)
+4. Re-point `dispatchers/board.py` + servo/axis/input to the protocol (mapping table §C.3).
+5. Settings: **read** board on connect & sync Python (no push); `set`+`save` on UI change;
+   ratios `set` live (never saved). Then the UI parity port.
+6. See `docs/migration_todo.md` for the full Phase 0b–6 checklist.
 
 ## Commands
 

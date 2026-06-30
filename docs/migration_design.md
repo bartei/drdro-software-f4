@@ -129,7 +129,7 @@ write) maps to `servo.tgt` (firmware renamed `direction` → `stepsToGo`).
 **Errors:** `unknown command`, `unknown variable`, `usage: …`, `read-only`, `bad index`,
 `value out of range`, `bad checksum`, `flash write`.
 
-### C.4 Fast-poll mapping — `sta` vs the old bulk `refresh` ⚠️ DECISION D2
+### C.4 Fast-poll mapping — `sta` vs the old bulk `refresh` ✅ CONFIRMED (D2)
 
 The 30 Hz UI loop (`board.update`) currently calls `device['fastData'].refresh()` and every
 dispatcher reads from the resulting `fast_data_values` dict. The new firmware's `sta` returns
@@ -140,18 +140,18 @@ The host's per-tick consumers need **two more** values:
   completion (`stepsToGo == 0` re-enables controls / restores max speed).
 - `servoEnable` → `servo.mode` — used each tick to track enable state.
 
-Options (pick one in review):
-- **(a) Extend firmware `sta`** to also emit `servo.tgt` + `servo.mode` (one-line firmware
-  change; keeps the fast loop a single round-trip). **Recommended** — coordinate a small
-  firmware PR. `sta` already runs ~135 Hz on the bench, well above 30 Hz.
-- **(b) Host issues two extra `get`s per tick** (`get servo.tgt`, `get servo.mode`). Works
-  with shipped firmware unchanged; ~3 round-trips/tick (still within budget) but more bus
-  traffic and latency.
-- **(c) Poll `servo.tgt`/`servo.mode` at a lower rate** (mode is user-driven; `stepsToGo`
-  only matters while a move is active) — most efficient, slightly more logic.
+**Decision (confirmed):** **extend the firmware `sta` response** to also emit `servo.tgt` and
+`servo.mode`, so the fast loop stays a **single round-trip**. This is a small, coordinated
+firmware change in `drdro-firmware-f4` (one extra `respKV` pair in the `sta` handler + its
+native test). ⚑ **Cross-repo action item** — must land in firmware before Phase 2's fast
+loop is finalized; track it there. `sta` already benchmarks well over 100 Hz, so the extra
+two fields cost nothing meaningful against the 30 Hz UI rate.
 
-`diag.cycles`/`diag.interval` (statusbar FPS/interval readout) are low-rate — fetch via a
-periodic `get`, not in the hot loop, regardless of the choice above.
+After the firmware change, the per-tick `sta` yields everything the hot loop needs:
+`scales.pos[4]`, `scales.speed[4]`, `servo.pos`, `servo.speed`, `servo.tgt`, `servo.mode`.
+
+`diag.cycles`/`diag.interval` (statusbar FPS/interval readout) stay **out** of the hot loop —
+fetch via a periodic low-rate `get`.
 
 ### C.5 Connection lifecycle & resilience
 
@@ -165,15 +165,23 @@ periodic `get`, not in the hot loop, regardless of the choice above.
   (feeds the debounce). Optionally send the `*HH` request checksum once link quality is
   characterised (off by default — CLI-friendly).
 
-### C.6 Bus access serialization ⚠️ DESIGN POINT
+### C.6 Bus access serialization ✅ CONFIRMED (D3)
 
 Modbus `minimalmodbus` is request/response and the old code was effectively single-threaded
 from the Kivy clock. The line protocol is also strictly request/response on a single
-half-duplex bus, so **only one command may be outstanding at a time**. The host must
-serialize: the 30 Hz `sta` poll, occasional `set`/`get`, `save`, and (rarely) firmware update
-must not interleave on the wire. Plan: a single owning thread or an `asyncio`/lock-guarded
-queue inside `ProtocolClient`; the Kivy `update_tick` enqueues `sta` and applies the result.
-Firmware-update mode takes exclusive ownership of the port (no `sta` polling during YMODEM).
+half-duplex bus, so **only one command may be outstanding at a time**.
+
+**Decision (confirmed):** an **`asyncio`, lock-guarded command queue** inside `ProtocolClient`.
+Callers (the Kivy loop, UI actions, the updater) **enqueue** a command and `await`/get-back its
+parsed response; the queue serializes the wire so nothing interleaves or mixes up, and the Kivy
+event loop is never blocked on serial I/O. `main.py` already runs Kivy under `asyncio`
+(`async_run`), so the queue lives on the same loop. The 30 Hz `update_tick` enqueues `sta` and
+applies the result when it returns; occasional `set`/`get`/`save` slot in between polls. The
+protocol was benchmarked **well over 100 Hz** for `sta`, so there is ample headroom to
+interleave other requests against the 30 Hz UI rate.
+
+Firmware-update mode takes **exclusive** ownership of the port: the `sta` poll is paused for the
+duration of the YMODEM transfer (the updater drains/holds the queue), then resumed.
 
 ---
 
@@ -211,10 +219,10 @@ scale_num[4]  scale_den[4]  scale_sync[4]   servo_max  servo_acc  servo_jog  ser
 
 | Setting | Where | Change frequency | Rationale |
 |---|---|---|---|
-| `scales.num[4]` / `scales.den[4]` (final sync ratios) | **Board flash** | rare (config-time) | Board needs them to run sync/ELS autonomously; persist via `save` on change instead of re-deriving + re-pushing each connect. **See D.4 caveat.** |
-| `servo.max`, `servo.acc`, `servo.jog` | **Board flash** | rare | These are exactly what `on_connected` re-pushes today; persist once. |
-| `scales.sync[4]` (enable) | **Host-driven, optionally saved** | medium | Operational toggle (`toggle_sync`); set live. Persisting is optional (last-state restore). **Decision D5.** |
-| `servo.mode` | **Host-driven, optionally saved** | medium | Operational (off/sync/jog); set live. **Decision D5.** |
+| `scales.num[4]` / `scales.den[4]` (final sync ratios) | **Host (Python) — set live, NOT saved** ✅D4 | frequent | Complex ratio math that changes often and **depends on the MM/IN display unit**. Python is the source of truth; it derives them and **pushes (`set`) on connect and on change**, but **never `save`s** them to flash. **See D.4.** |
+| `servo.max`, `servo.acc`, `servo.jog` | **Board flash (firmware = source of truth)** ✅D5 | rare | Config values `on_connected` re-pushes today. Persist on the board; **read on connect**, `set`+`save` on UI change. |
+| `scales.sync[4]` (enable) | **Live operational — read on connect, not saved** ✅D5 | medium | Toggle (`toggle_sync`); `set` live, **read** on connect to sync the UI to actual board state. Not persisted. |
+| `servo.mode` | **Live operational — read on connect, not saved** ✅D5 | medium | Off/sync/jog; `set` live, **read** on connect to sync the UI. Not persisted. |
 | Input mechanical calibration: `ratioNum/ratioDen`, `stepsPerMM`, `encoder_ppr`, `gear_ratio_num/den`, `spindleMode` (`InputDispatcher`) | **Host YAML** | rare but **host-only concept** | Firmware has no notion of these; they feed host display math and the sync-ratio derivation. Stay in `CoordBar-*.yaml`. |
 | Servo mechanical: `ratioNum/ratioDen` (steps/turn), `unitsPerTurn`, `leadScrewPitch/In/Steps`, `elsMode`, `divisions`, `indexSpeed` | **Host YAML** | rare but **host-only** | Used to derive `scales.num/den` and for display; firmware only sees the final ratio. |
 | Axis: `transform`, `axis_name`, `axis_index`, user `syncRatioNum/Den`, `offsets[100]`, `abs_offset` | **Host YAML** | often (offsets) / rare (transform) | Host abstraction; no firmware equivalent. |
@@ -223,26 +231,36 @@ scale_num[4]  scale_den[4]  scale_sync[4]   servo_max  servo_acc  servo_jog  ser
 | ELS role assignments (`spindle/z/x_axis_index`) | **Host YAML** | rare, host-only | Host mapping. |
 | Connection: `serial_port`, `baudrate` | **Host `config.ini`** | rare | Host-side. **`address` (Modbus slave 17) is removed** — no addressing. |
 
-### D.4 The dynamic-ratio caveat ⚠️
+### D.4 The dynamic ratios stay in Python ✅ CONFIRMED (D4)
 
 `scales.num/den` is **not a constant** in RCP: `AxisDispatcher._set_sync_ratio` derives it as
 `scale_ratio × user_sync ÷ servo_ratio`, and `scale_ratio` **includes the MM/IN `factor`**, so
-the value changes whenever the user flips units or edits a ratio. Therefore "store on board"
-means: the board keeps the **last applied** ratios so it boots ready and the host need not
-re-push on reconnect — but the host **must re-`set` + `save`** when the user changes units or
-the sync ratio (a deliberate, infrequent action, not a reconnect). The derivation stays on the
-host. This is the key behavioural change vs. today's re-push-every-connect.
+the value changes whenever the user flips units or edits a ratio.
 
-### D.5 New connect flow & `save` policy
+**Decision (confirmed):** these dynamic ratios are **not stored on the board**. Python owns the
+calculation and **pushes them with `set`** — on connect and whenever a contributing value
+(unit, user sync ratio, mechanical params) changes — but **never `save`s** them to flash. The
+board's flash `scale_num/den` fields simply retain their defaults; Python overwrites the live
+values each connect. This keeps the complex, unit-dependent math entirely on the host where it
+belongs. (Consequence: ratios *are* re-pushed on connect — that's intentional and cheap; only
+the **persisted** subset below stops being pushed.)
 
-- **On connect:** `settings` (or targeted `get`s) → load board values into the dispatchers,
-  **instead of** `on_connected` pushing. Reconcile: if host config and board disagree (e.g.
-  host config edited offline), define a source-of-truth — **Decision D6** (propose: board is
-  truth for the persisted subset; host pushes + `save` only when the user edits).
-- **`save` timing:** call `save` on **user-driven config changes** (debounced), never per
-  tick. `save` is motion-safe (firmware ISR runs from RAM) so it's safe any time.
-- **Whole-struct RMW:** the firmware preserves other fields, but the host should `set` all
-  intended fields then `save` so a stale in-RAM image isn't written back.
+### D.5 Connect flow & `save` policy — firmware is source of truth ✅ CONFIRMED (D5/D6)
+
+For the **board-persisted** settings (`servo.max`, `servo.acc`, `servo.jog`), the **firmware is
+the source of truth**:
+
+- **On connect: READ, don't push.** Fetch the board's persisted values (`settings` or targeted
+  `get`s) and **sync the Python side to them** — replacing today's `on_connected` push of
+  `maxSpeed`/`acceleration`. The board's stored config wins.
+- **On UI change: `set` + `save`.** When the user edits one of these in the UI, push it
+  (`set`) and persist it (`save`, debounced). Never `save` per tick. `save` is motion-safe
+  (firmware ISR runs from RAM), so it's safe at any time.
+- **Live operational state** (`scales.sync`, `servo.mode`): **read on connect** to sync the UI
+  to the board's actual state, `set` on change, **not** `save`d.
+- **Dynamic ratios** (`scales.num/den`): `set` on connect/change, **not** `save`d (§D.4).
+- **Whole-struct RMW:** the firmware preserves untouched fields, but when saving the host should
+  ensure the intended fields are current so a stale in-RAM image isn't written back.
 
 ---
 
@@ -318,24 +336,28 @@ everything else is a straight port (including `.kv` files).
 
 ---
 
-## Open decisions (resolve in review, then move to "Confirmed")
+## Open decisions
 
-- **D1 — Package name:** `dro` (proposed) vs keep `rcp` to zero-diff the port? *(proposed: `dro`)*
-- **D2 — Fast poll (Part C.4):** extend firmware `sta` with `servo.tgt`+`servo.mode` (a),
-  extra per-tick `get`s (b), or low-rate poll (c)? *(proposed: (a), small firmware PR)*
-- **D3 — Bus serialization (Part C.6):** dedicated serial thread vs asyncio lock-queue inside
-  `ProtocolClient`? *(proposed: single owning thread + queue)*
-- **D4 — Firmware `.bin` source:** local file picker only, GitHub-releases download, or both?
-  *(proposed: both — local file first, GitHub later)*
-- **D5 — Persist `scales.sync` / `servo.mode`?** live-only, or also `save` to flash for
-  last-state restore? *(proposed: live-only; revisit)*
-- **D6 — Settings source-of-truth on connect mismatch:** board wins for the persisted subset,
-  host pushes+`save` only on user edit? *(proposed: yes)*
-- **D7 — Keep RCP's git/pip self-update screen** alongside the new firmware updater?
-  *(proposed: keep both, clearly separated)*
+- **D1 — Package name:** `dro` applied in the scaffold (vs keeping `rcp`). Not explicitly
+  confirmed; speak up if you'd rather zero-diff the port by keeping `rcp`. *(default: `dro`)*
+- **D7 — Firmware `.bin` source for the updater** (local file picker vs GitHub-releases
+  download vs both): **deferred** — get the protocol rolled out and working first, then
+  decide when we build the firmware screen (Phase 5). *(leaning: both, local file first)*
+
+> Note: the earlier "D4 — firmware `.bin` source" question was renumbered to **D7** so D4 now
+> refers to the dynamic-ratio decision (§D.4). The "keep RCP's git/pip self-update screen"
+> question is also deferred to Phase 5.
 
 ## Confirmed decisions
-- *(none yet — populated during review)*
+- **D2 — Fast poll:** **extend firmware `sta`** to also emit `servo.tgt` + `servo.mode` →
+  single-round-trip hot loop. Cross-repo firmware change (§C.4).
+- **D3 — Bus serialization:** **`asyncio`, lock-guarded command queue** in `ProtocolClient`;
+  never blocks the Kivy loop; `sta` >100 Hz gives headroom to interleave (§C.6).
+- **D4 — Dynamic ratios:** `scales.num/den` stay **in Python** (unit-dependent, frequently
+  changing); `set` live, **never `save`d** to flash (§D.4).
+- **D5/D6 — Persisted settings:** **firmware is the source of truth** for `servo.max/acc/jog`.
+  On connect **read** board values and sync Python (no push); on UI change `set`+`save`.
+  `scales.sync`/`servo.mode` are read-on-connect live state, not persisted (§D.5).
 
 ## Parking lot (future, not now)
 - Multi-board addressing (firmware parking-lot too).
