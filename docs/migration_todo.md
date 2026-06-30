@@ -30,24 +30,33 @@ land; keep the design doc as the source of truth. **D2/D3/D4/D5 confirmed; D1 de
 - [x] Unit tests (15) against a firmware-accurate `FakeSerial` — crc/retry/error/link-state
 - [x] **HW-verified** against the board over `/dev/ttyACM2`: version/sta/get/set/settings/RO-error,
       checksummed requests, read+write round-trips, restore. All CRC-correct, link stayed up.
-- [ ] Keep `dro/utils/ctype_calc.py` (port the encoder-wrap helper in Phase 2)
+- [x] Keep `dro/utils/ctype_calc.py` (encoder-wrap helper ported in Phase 2)
 
-## Phase 2 — Dispatchers re-pointed to the protocol (needs Phase 0b firmware `sta`)
-- [ ] `board.py`: `ProtocolClient` instead of `ConnectionManager`; `update` loop polls `sta`
-- [ ] Fast-poll: single-round-trip `sta` → `scales.pos/speed`, `servo.pos/speed`, `servo.tgt`, `servo.mode`
-- [ ] `servo.py`: `maxSpeed/acc/jog`→`servo.max/acc/jog`; `direction`→`servo.tgt`; `servoEnable`→`servo.mode`
-- [ ] `axis.py`: `_set_sync_ratio` → `set scales.num/den`; `toggle_sync` → `set scales.sync`
-- [ ] `input.py`: scale position/speed from `sta` mapping
-- [ ] `statusbar`: `diag.cycles` / `diag.interval` via low-rate `get`
-- [ ] Verify identical UI behaviour vs RCP on the bench
+## Phase 2 — Dispatchers re-pointed to the protocol — done 2026-06-29, HW-verified
+- [x] `board.py`: owns `ProtocolClient`; async poll loop (`run`/`poll_once`) replaces the
+      Clock-driven Modbus refresh; sync↔async bridge (`write`/`write_persisted`/`cached`/`_spawn`)
+- [x] Fast-poll: single-round-trip `sta` → `map_sta` (scales.pos/speed, servo.pos/speed/tgt/mode)
+- [x] `servo.py`: `maxSpeed/acc/jog`→`servo.max/acc/jog`; `direction`→`servo.tgt`; `servoEnable`→`servo.mode`;
+      board-as-source-of-truth sync on connect (`_sync_from_board`, write-back suppressed)
+- [x] `axis.py`: `_set_sync_ratio` → live `set scales.num/den` (never saved, D4); `toggle_sync` → `set scales.sync`
+- [x] `input.py`: scale position/speed from the `sta` mapping
+- [x] `els.py` ported; `ctype_calc`, `saving_dispatcher`, `formats`, `axis_transform` ported
+- [x] Board folds `diag.cycles`/`diag.interval` into `fast_data_values` via a low-rate `get`
+      (statusbar *widget* itself is Phase 4 UI)
+- [x] Settings flow wired (Phase 3 overlaps): read board on connect (no push), `set`+debounced
+      `save` on persisted UI change, ratios live-only
+- [x] Unit tests (map_sta + cache, 4) + **HW harness**: Board+dispatchers drive the live board —
+      connected, fast_data_values populated, servo synced from flash, persisted + live writes round-trip
+- [ ] Verify identical UI behaviour vs RCP on the bench — deferred to Phase 4 (UI not built yet)
 
-## Phase 3 — Settings: firmware = source of truth (stop push-on-reconnect)
-- [ ] On connect: **read** persisted settings (`servo.max/acc/jog`) from board → sync Python (no push)
-- [ ] Remove `on_connected` push of `maxSpeed`/`acceleration`; replace with read-back
-- [ ] On UI change of `servo.max/acc/jog`: `set` + `save` (debounced)
-- [ ] `scales.num/den`: derive in Python, `set` on connect/change, **never `save`** (D4)
-- [ ] `scales.sync` / `servo.mode`: read-on-connect to sync UI; `set` on change; not saved (D5)
-- [ ] Drop Modbus `address` from `config.ini`
+## Phase 3 — Settings: firmware = source of truth (landed with Phase 2)
+- [x] On connect: **read** persisted settings (`servo.max/acc/jog`) → sync Python (no push)
+      (`Board._refresh_settings` + `ServoDispatcher._sync_from_board`)
+- [x] Removed `on_connected` push of `maxSpeed`/`acceleration`; replaced with read-back
+- [x] On UI change of `servo.max/acc/jog`: `set` + debounced `save` (`Board.write_persisted`)
+- [x] `scales.num/den`: derived in Python, `set` on connect/change, **never `save`** (D4)
+- [x] `scales.sync` / `servo.mode`: read-on-connect to sync UI; `set` on change; not saved (D5)
+- [ ] Drop Modbus `address` from `config.ini` — with the app shell (Phase 4); client has no address
 
 ## Phase 4 — UI feature parity port (1:1)
 - [ ] Screens (18) + `.kv` — see design §F

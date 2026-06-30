@@ -20,14 +20,28 @@ talks to it.
 
 ## Current state (2026-06-29)
 
-- ✅ Repo initialized: uv project, branch `main`, `uv.lock` generated (`uv lock` green).
-  Files: `pyproject.toml` (package `dro`, `pyserial` instead of `minimalmodbus`),
-  `dro/__init__.py`, `.python-version` (3.11), `.gitignore`, `README.md`, `CLAUDE.md`.
-- ✅ Design docs written and under review: `docs/migration_design.md` + `docs/migration_todo.md`.
-- ⛔ **No code implemented yet.** Nothing committed — files are in the working tree awaiting
-  the design review (decisions D1–D7).
-- ⏳ **Next gate:** resolve open decisions D1–D7 (below) with the user, move them to
-  "Confirmed" in the design doc, then start Phase 1.
+- ✅ Repo initialized: uv project, branch `main`, package `dro`, `pyserial`. Design docs +
+  decisions confirmed (D2–D6); see `docs/migration_design.md` / `migration_todo.md`.
+- ✅ **Firmware Phase 0b (HW-verified):** `sta` extended with `servo.tgt`+`servo.mode` on branch
+  `feat/sta-servo-fields` in `../drdro-firmware-f4` (commit `0a1e6b3`). **Flashed to the board.**
+  ⚑ Not yet merged to firmware `main`/`dev`.
+- ✅ **Phase 1 (HW-verified):** `dro/comms/protocol_client.py` — async, lock-guarded line-protocol
+  client (framed req/resp, CRC verify, glitch retry, `*HH`). 15 unit tests.
+- ✅ **Phase 2 + 3 (HW-verified):** dispatchers re-pointed to the protocol —
+  `board.py` (poll loop + sync↔async bridge + `map_sta` + settings cache + debounced save),
+  `servo/axis/input/els`, plus ported `ctype_calc/saving_dispatcher/formats/axis_transform`.
+  Firmware = source of truth for `servo.max/acc/jog` (read on connect); ratios pushed live,
+  never saved. 4 unit tests + a headless HW harness drove the live board successfully.
+- ⏳ **Next: Phase 4** — the Kivy UI port (screens/home/popups/widgets/plot) + the app shell
+  (`app.py`, `main.py`, `manager.py`, `appsettings.py`, `feeds.py`). Then Phase 5 (firmware
+  update UI). The bench "identical UI behaviour" verification happens once the UI exists.
+
+### Bridge gotchas for Phase 4
+- The board poll loop is **asyncio** (not Kivy Clock). `MainApp` must call `board.start()` after
+  the asyncio loop is running (it is, under `async_run`). `board._spawn` schedules writes on that loop.
+- ST-Link flashing leaves the board in ST ROM (HW-1 floating BOOT0). Recover with an openocd
+  `reset run` (`-f interface/stlink.cfg -f target/stm32f4x.cfg -c "init; reset run; exit"`).
+- Host config dir is `~/.config/drdro-software` (was `rotary-controller-python`). No Modbus address.
 
 ## Source repos (read-only references)
 
