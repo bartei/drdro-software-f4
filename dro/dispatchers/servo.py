@@ -265,7 +265,10 @@ class ServoDispatcher(SavingDispatcher):
     def on_jogSpeed(self, instance, value):
         if self._syncing:
             return
-        self.board.write_persisted('servo.jog', self.jogSpeed)
+        # Live operational value (jogbar slider), NOT a flash-saved config: a `save` here
+        # would stall the firmware protocol task for the flash-write time (~200 ms) and freeze
+        # the position readout mid-jog. servo.max/acc stay persisted (set in Servo Settings).
+        self.board.write('servo.jog', self.jogSpeed)
 
     def on_acceleration(self, instance, value):
         if self._syncing:

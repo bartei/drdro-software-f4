@@ -220,7 +220,8 @@ scale_num[4]  scale_den[4]  scale_sync[4]   servo_max  servo_acc  servo_jog  ser
 | Setting | Where | Change frequency | Rationale |
 |---|---|---|---|
 | `scales.num[4]` / `scales.den[4]` (final sync ratios) | **Host (Python) — set live, NOT saved** ✅D4 | frequent | Complex ratio math that changes often and **depends on the MM/IN display unit**. Python is the source of truth; it derives them and **pushes (`set`) on connect and on change**, but **never `save`s** them to flash. **See D.4.** |
-| `servo.max`, `servo.acc`, `servo.jog` | **Board flash (firmware = source of truth)** ✅D5 | rare | Config values `on_connected` re-pushes today. Persist on the board; **read on connect**, `set`+`save` on UI change. |
+| `servo.max`, `servo.acc` | **Board flash (firmware = source of truth)** ✅D5 | rare | Config (Servo Settings screen). Persist on the board; **read on connect**, `set`+`save` on UI change. |
+| `servo.jog` | **Live operational — set, NOT saved** | frequent | Driven by the jog slider; `set` live only. A `save` per change stalls the firmware protocol task ~200 ms (flash write) → freezes the position readout mid-jog, so it is never flash-saved. |
 | `scales.sync[4]` (enable) | **Live operational — read on connect, not saved** ✅D5 | medium | Toggle (`toggle_sync`); `set` live, **read** on connect to sync the UI to actual board state. Not persisted. |
 | `servo.mode` | **Live operational — read on connect, not saved** ✅D5 | medium | Off/sync/jog; `set` live, **read** on connect to sync the UI. Not persisted. |
 | Input mechanical calibration: `ratioNum/ratioDen`, `stepsPerMM`, `encoder_ppr`, `gear_ratio_num/den`, `spindleMode` (`InputDispatcher`) | **Host YAML** | rare but **host-only concept** | Firmware has no notion of these; they feed host display math and the sync-ratio derivation. Stay in `CoordBar-*.yaml`. |
@@ -247,7 +248,7 @@ the **persisted** subset below stops being pushed.)
 
 ### D.5 Connect flow & `save` policy — firmware is source of truth ✅ CONFIRMED (D5/D6)
 
-For the **board-persisted** settings (`servo.max`, `servo.acc`, `servo.jog`), the **firmware is
+For the **board-persisted** settings (`servo.max`, `servo.acc`), the **firmware is
 the source of truth**:
 
 - **On connect: READ, don't push.** Fetch the board's persisted values (`settings` or targeted
@@ -355,7 +356,8 @@ everything else is a straight port (including `.kv` files).
   never blocks the Kivy loop; `sta` >100 Hz gives headroom to interleave (§C.6).
 - **D4 — Dynamic ratios:** `scales.num/den` stay **in Python** (unit-dependent, frequently
   changing); `set` live, **never `save`d** to flash (§D.4).
-- **D5/D6 — Persisted settings:** **firmware is the source of truth** for `servo.max/acc/jog`.
+- **D5/D6 — Persisted settings:** **firmware is the source of truth** for `servo.max/acc`
+  (`servo.jog` is live operational, not saved — a per-change flash save stalls the protocol ~200 ms).
   On connect **read** board values and sync Python (no push); on UI change `set`+`save`.
   `scales.sync`/`servo.mode` are read-on-connect live state, not persisted (§D.5).
 
