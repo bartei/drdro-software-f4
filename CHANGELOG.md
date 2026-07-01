@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-07-01)
+
+### Chores
+
+- Add shell.nix for NixOS dev
+  ([`663f7ef`](https://github.com/bartei/drdro-software-f4/commit/663f7efef8615c4419ad74bdbee65381552a2490))
+
+### Features
+
+- **servo**: Board-owned indexing feedrate; drop max-speed override
+  ([`77edec9`](https://github.com/bartei/drdro-software-f4/commit/77edec92a3ac3907fc060a6a4822e2daf4a9b5fb))
+
+- **ui**: RetroProgressBar — solid-fill, 1px-frame progress bar
+  ([`0e42489`](https://github.com/bartei/drdro-software-f4/commit/0e42489cdc2fcbfdaec2f037d8e20a547768d24c))
+
+
 ## v1.2.0 (2026-06-30)
 
 ### Features
