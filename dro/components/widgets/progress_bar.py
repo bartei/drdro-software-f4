@@ -17,7 +17,7 @@ class RetroProgressBar(Widget):
     max = NumericProperty(100.0)
     value = NumericProperty(0.0)
 
-    fill_color = ColorProperty([1.0, 0.8, 0.2, 1])      # solid progress fill
+    fill_color = ColorProperty([1.0, 0.8, 0.2, 0.6])      # solid progress fill
     border_color = ColorProperty([0.5, 0.5, 0.5, 1])    # 1px frame
     background_color = ColorProperty([0, 0, 0, 1])      # well behind the fill
     border_width = NumericProperty(1)
