@@ -38,15 +38,14 @@ packages = ["dro"]
 pythonpath = ["."]
 testpaths = ["tests"]
 
+# push to dev  -> next version as a BETA prerelease (vX.Y.Z-beta.N, GitHub prerelease)
+# push to main -> OFFICIAL stable release (vX.Y.Z)
+# Same tooling/flow as drdro-arch and drdro-firmware-f4. Stable release notes fold in the
+# beta changes (templates/.release_notes.md.j2).
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-patch_without_tag = true
-branch = "main"
 hvcs = "github"
-remove_dist = false
-upload_to_pypi = false
 build_command = "uv build"
-prerelease = false
 
 [tool.semantic_release.branches.main]
 match = "main"
@@ -55,4 +54,4 @@ prerelease = false
 [tool.semantic_release.branches.dev]
 match = "dev"
 prerelease = true
-prerelease_token = "rc"
+prerelease_token = "beta"
