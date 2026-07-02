@@ -1,6 +1,7 @@
 #: import NumberItem dro.components.widgets.number_item
 #: import DualNumberItem dro.components.widgets.dual_number_item
 #: import BooleanItem dro.components.widgets.boolean_item
+#: import FilterItem dro.components.widgets.filter_item
 
 <InputScreen>:
   BoxLayout:
@@ -24,6 +25,12 @@
           value: root.input.spindleMode
           help_file: "spindle_mode.md"
           on_value: root.input.spindleMode = self.value
+
+        FilterItem:
+          name: "Encoder Filter"
+          value: root.input.filterValue
+          help_file: "encoder_filter.md"
+          on_value: root.input.filterValue = int(self.value)
 
         NumberItem:
           name: "Ratio Numerator"

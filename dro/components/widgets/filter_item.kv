@@ -1,0 +1,45 @@
+<FilterItem>:
+  value: 5
+  height: 90
+  size_hint_y: None
+  orientation: "vertical"
+  BoxLayout:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: 60
+    Button:
+      size_hint_x: None
+      width: self.height
+      font_name: "fonts/Font Awesome 6 Free-Solid-900.otf"
+      font_size: 21
+      text: "\uf129"
+      disabled: not root.help_file
+      on_release: Factory.HelpPopup.show_help(root.help_file)
+    Label:
+      size_hint_x: 0.7
+      text: root.name
+      font_size: app.formats.font_size
+    Button:
+      size_hint_x: None
+      width: self.height
+      text: "-"
+      font_size: app.formats.font_size
+      on_release: root.validate(root.value - 1)
+    Button:
+      size_hint_x: None
+      width: 130
+      text: str(int(root.value))
+      font_size: app.formats.font_size
+      on_release: Factory.Keypad(integer=True).show(root, 'value')
+    Button:
+      size_hint_x: None
+      width: self.height
+      text: "+"
+      font_size: app.formats.font_size
+      on_release: root.validate(root.value + 1)
+  Label:
+    size_hint_y: None
+    height: 30
+    text: root.info
+    font_size: app.formats.font_size * 0.6
+    color: 0.7, 0.7, 0.7, 1

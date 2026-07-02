@@ -6,8 +6,9 @@ deltas, and exposes a scaled_value (position * ratio) for consumption by
 AxisDispatchers.  It owns ratioNum/ratioDen/stepsPerMM but has no knowledge
 of offsets, formatting, or sync ratios — those live in AxisDispatcher.
 
-Reads come from the board's `fast_data_values` (mapped from the `sta` reply); this
-dispatcher issues no device writes.
+Reads come from the board's `fast_data_values` (mapped from the `sta` reply). The
+only device write this dispatcher issues is `scales.filt` (the board-persisted
+encoder input filter); everything else is host-side calibration.
 """
 
 import collections
@@ -38,6 +39,9 @@ class InputDispatcher(SavingDispatcher):
     gear_ratio_num = NumericProperty(1)
     gear_ratio_den = NumericProperty(1)
 
+    # ── Board-persisted properties (firmware flash is the source of truth) ──
+    filterValue = NumericProperty(5)  # encoder input filter, 0–15 (TIM ICxF)
+
     # ── Transient computed properties ────────────────────────────────
     _spindle_wrap_steps = NumericProperty(0)
     position = NumericProperty(0)
@@ -49,10 +53,12 @@ class InputDispatcher(SavingDispatcher):
         "scaled_value",
         "steps_per_second",
         "_spindle_wrap_steps",
+        "filterValue",
     ]
 
     def __init__(self, board, **kv):
         self.board = board
+        self._syncing = False
         super().__init__(**kv)
 
         self.speed_history = collections.deque(maxlen=25)
@@ -63,6 +69,7 @@ class InputDispatcher(SavingDispatcher):
 
         # Bindings
         self.board.bind(update_tick=self._on_update_tick)
+        self.board.bind(connected=self._on_connected)
         self.bind(position=self._update_scaled_value)
         self.bind(ratioNum=self._update_scaled_value)
         self.bind(ratioDen=self._update_scaled_value)
@@ -75,6 +82,31 @@ class InputDispatcher(SavingDispatcher):
         self._update_wrap_steps()
         self._update_scaled_value()
         Clock.schedule_interval(self._speed_task, 1.0 / 25.0)
+
+    def _on_connected(self, instance, value):
+        """Firmware is the source of truth for scales.filt — pull it on connect.
+
+        Suppresses the write-back so syncing the UI to the board value doesn't
+        re-`set`+`save`.
+        """
+        if not self.board.connected:
+            return
+        self._syncing = True
+        try:
+            v = self.board.cached("scales.filt", self.inputIndex)
+            if v is not None:
+                self.filterValue = int(v)
+        except Exception as e:
+            log.error(f"Unable to sync encoder filter from board: {str(e)}")
+        finally:
+            self._syncing = False
+
+    def on_filterValue(self, instance, value):
+        if self._syncing:
+            return
+        # Board-owned, persisted encoder input filter; firmware clamps to 0–15
+        # and reprograms the timer live.
+        self.board.write_persisted("scales.filt", int(value), self.inputIndex)
 
     def _update_wrap_steps(self, *args, **kv):
         if self.spindleMode:
