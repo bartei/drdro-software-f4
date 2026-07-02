@@ -46,9 +46,41 @@ talks to it.
   (version, active bank, boot-bank selector, manual reset, GitHub version list, install, progress
   bar, status log). Flashed a local `.bin` into the inactive bank over RS-485 and booted it
   (bank 1→0, version updated). **GitHub fetch path untested here (no network/CA certs).**
+- ✅ **Encoder filter + machine profiles (2026-07-02, not yet HW-verified):**
+  - `scales.filt` (firmware `scale_filter[4]`, 0–15, default 5) wired end-to-end: new
+    `FilterItem` widget on the per-input screen (keypad + −/+ steppers + live reject-time/
+    max-frequency info line, `dro/utils/encoder_filter.py`), board-persisted via
+    `write_persisted`, synced on connect (`InputDispatcher.filterValue`); help
+    `dro/help/encoder_filter.rst` has the full 0–15 table @100 MHz.
+  - **Machine profiles** (`dro/profiles.py` + Profiles setup screen): YAML files under
+    `~/.config/drdro-software/profiles/` with metadata (name/created/sw+fw versions), the
+    board-persisted vars, and the machine host YAMLs (Axis/CoordBar/ServoBar/Els — formats/
+    network stay device-local). Apply = auto timestamped backup → rewrite host files → push+
+    save board section → `os.execv` app restart.
+  - **Firmware update backup/restore:** `firmware_screen._install` snapshots the board vars,
+    writes a timestamped backup profile pre-flash, and after reboot auto-restores (diff-only,
+    single save) anything a settings-layout change wiped. 13 new unit tests (36 total green).
+- ✅ **Firmware-compat check + home update banner (2026-07-02, HW-verified):**
+  `dro/utils/fw_compat.py` declares `COMPANION_FW_VERSION` (v0.6.0 — needs `scales.filt`);
+  `Board` compares the connected firmware on (re)connect (`firmware_update_required`
+  property) and the home page shows a full-width tap-to-update banner
+  (`dro/components/home/fw_update_banner.py`) → `goto("firmware")`. Bump the constant
+  whenever the software starts using a newer protocol var. Verified live: bench board at
+  v0.5.1 raised the banner by itself; tap landed on the firmware screen; the GitHub release
+  fetch worked from this machine (v0.6.0 listed — the "fetch untested" caveat below is now
+  cleared). 9 new unit tests (45 total green). OTA v0.5.1→v0.6.0 not yet performed.
+- ✅ **Software-update screen de-RCP'd (2026-07-02, verified live fetch):** update_screen now
+  points at THIS repo (`bartei/drdro-software-f4`), installs into the drdro-arch appliance
+  layout (`/opt/drdro/app` + its `.venv/bin/pip`; was `/rotary-controller-python` + bare pip),
+  verifies TLS via certifi (same as updater.py), and with "experimental" ON also lists beta
+  prerelease tags (vX.Y.Z-beta.N — installable via `git checkout tags/…`) ahead of the dev
+  entry. Also moved ProfilingPanel dumps to `~/.config/drdro-software/profiling/` (old RCP
+  config dir; `profiles/` is machine profiles). Headless run confirmed the real release list
+  (v1.3.0…v1.0.0) renders and the install button disables on the current version.
 - ⏳ **Next: Phase 6 (release & polish)** — CI (GitHub Actions build+tests, semantic-release),
   verify GitHub firmware fetch on a networked machine, RCP dead-code cleanup, Modbus→protocol
   user notes. Optional: expose rollback/erase/crc in the firmware UI (plumbing exists).
+  Bench-verify the encoder filter (`scales.filt`) + profile apply/restart on the Pi.
 
 ### Running the UI
 - `uv run python -m dro.main` (config: `config.ini` at repo root; serial port set there).

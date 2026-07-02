@@ -111,6 +111,7 @@ design proposal):
 | `scales.num`   | i32 | 4 | RW | `scales[i].syncRatioNum` | `device['scales'][i]['syncRatioNum']` |
 | `scales.den`   | i32 | 4 | RW | `scales[i].syncRatioDen` | `device['scales'][i]['syncRatioDen']` |
 | `scales.sync`  | u16 | 4 | RW | `scales[i].syncEnable`   | `device['scales'][i]['syncEnable']` |
+| `scales.filt`  | u16 | 4 | RW | `scales[i].filterValue`  | *(new)* encoder input filter 0–15 (TIM ICxF); write reprograms the timer live; persisted (`scale_filter[i]`, default 5) |
 | `servo.max`    | f32 | 1 | RW | `servo.maxSpeed`         | `device['servo']['maxSpeed']` |
 | `servo.acc`    | f32 | 1 | RW | `servo.acceleration`     | `device['servo']['acceleration']` |
 | `servo.jog`    | f32 | 1 | RW | `servo.jogSpeed`         | `device['servo']['jogSpeed']` |
