@@ -22,7 +22,7 @@ import time
 
 from kivy.clock import Clock
 from kivy.event import EventDispatcher
-from kivy.properties import NumericProperty, BooleanProperty, ObjectProperty, ListProperty
+from kivy.properties import NumericProperty, BooleanProperty, ObjectProperty, ListProperty, StringProperty
 
 from dro.comms.protocol_client import ProtocolClient, Response
 from dro.dispatchers.axis import AxisDispatcher
@@ -31,6 +31,7 @@ from dro.dispatchers.input import InputDispatcher
 from dro.dispatchers.saving_dispatcher import SETTINGS_FOLDER, read_settings
 from dro.dispatchers.servo import ServoDispatcher
 from dro.utils.constants import SCALES_COUNT
+from dro.utils.fw_compat import fw_update_required
 
 from kivy.logger import Logger
 log = Logger.getChild(__name__)
@@ -56,6 +57,8 @@ def map_sta(resp: Response) -> dict:
 class Board(EventDispatcher):
     connected = BooleanProperty(False)
     update_tick = NumericProperty(0)
+    firmware_version = StringProperty("")            # cached on (re)connect (Stats screen, banner)
+    firmware_update_required = BooleanProperty(False)  # firmware older than COMPANION_FW_VERSION
     blink = BooleanProperty(False)
     servo = ObjectProperty(None, allownone=True)
     inputs = ListProperty()
@@ -77,7 +80,6 @@ class Board(EventDispatcher):
         self._paused = False                           # firmware update yields the bus
         self.comm_rate = 0.0                           # measured `sta` polls/sec (EMA)
         self._last_poll_t: float | None = None
-        self.firmware_version = ""                     # cached on connect (for the Stats screen)
         # Diag (`diag.cycles`/`diag.interval`) is only polled when something displays it —
         # the top ribbon or the Stats screen — so a normal session does no extra round-trips.
         self.ribbon_visible = False
@@ -188,6 +190,10 @@ class Board(EventDispatcher):
         v = await self.connection.command("version")
         if v.crc_ok and v.text("version"):
             self.firmware_version = v.text("version")
+        self.firmware_update_required = fw_update_required(self.firmware_version)
+        if self.firmware_update_required:
+            log.warning("Firmware %s is older than the companion version this software "
+                        "needs — prompting for an update", self.firmware_version)
 
     # ── write / read facade used by the dispatchers ─────────────────
     def write(self, name: str, value, idx: int | None = None) -> None:

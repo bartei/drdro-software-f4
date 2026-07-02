@@ -1,0 +1,37 @@
+<FirmwareUpdateBanner>:
+  orientation: "horizontal"
+  size_hint_y: None
+  # Collapse entirely (no space, no touches) when the firmware is up to date.
+  height: dp(36) if root.show else 0
+  opacity: 1 if root.show else 0
+  disabled: not root.show
+  padding: dp(10), 0
+  spacing: dp(10)
+  canvas.before:
+    Color:
+      rgba: (0.95, 0.62, 0.10, 1) if root.state == "down" else (0.85, 0.52, 0.05, 1)
+    Rectangle:
+      pos: self.pos
+      size: self.size
+
+  Label:
+    text: "Firmware update required — board is {}, this software needs {} or newer".format(root.board_version or "?", root.required_version)
+    color: 0, 0, 0, 1
+    font_name: "fonts/Manrope-Bold.ttf"
+    font_size: dp(15)
+    text_size: self.size
+    halign: "left"
+    valign: "middle"
+    shorten: True
+    shorten_from: "right"
+
+  Label:
+    size_hint_x: None
+    width: dp(130)
+    text: "Tap to update"
+    color: 0, 0, 0, 1
+    font_name: "fonts/Manrope-Bold.ttf"
+    font_size: dp(15)
+    text_size: self.size
+    halign: "right"
+    valign: "middle"
