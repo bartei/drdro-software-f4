@@ -1,9 +1,11 @@
 import asyncio
 import importlib.metadata
 import os
+import ssl
 import subprocess
 
 import aiohttp
+import certifi
 from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.properties import ListProperty, StringProperty, BooleanProperty
@@ -20,6 +22,19 @@ load_kv(__file__)
 
 DEV_RELEASE = "dev (experimental)"
 
+# This application's own repository — SOFTWARE updates. (Firmware OTA is separate:
+# dro/comms/updater.py points at the drdro-firmware-f4 repo.)
+GITHUB_REPO = "bartei/drdro-software-f4"
+RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
+# Git checkout + venv baked into the drdro-arch appliance image (see drdro-arch/build.sh
+# and overlay/opt/drdro/app-run.sh — the app runs as root from this folder).
+PROJECT_FOLDER = "/opt/drdro/app"
+VENV_PIP = f"{PROJECT_FOLDER}/.venv/bin/pip"
+
+# Verify TLS against certifi's CA bundle — same rationale as dro/comms/updater.py
+# (system CA store is unreliable on some hosts).
+_SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+
 
 class UpdateScreen(Screen):
     releases = ListProperty([])
@@ -31,6 +46,8 @@ class UpdateScreen(Screen):
 
     def __init__(self, **kv):
         super().__init__(**kv)
+        self._official: list[str] = []
+        self._prereleases: list[str] = []
         self.schedule_refresh_releases()
         self.status = ""
 
@@ -40,10 +57,9 @@ class UpdateScreen(Screen):
 
     async def refresh_releases(self, dt):
         self.update_status("Retrieve all the releases from Github")
-        url = "https://api.github.com/repos/bartei/rotary-controller-python/releases"
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
+                async with session.get(RELEASES_URL, ssl=_SSL_CTX) as response:
                     if response.status != 200:
                         text = await response.text()
                         log.error(f"Failed to fetch releases: {response.status} - {text}")
@@ -51,19 +67,20 @@ class UpdateScreen(Screen):
 
                     releases = await response.json()
 
-            # Get only official releases (filter first, then limit)
-            official = [item['tag_name'] for item in releases if item['prerelease'] == False][:10]
-            self._set_releases(official)
-            self.selected_release = official[0] if official else ""
+            # Stable releases and beta prereleases (filter first, then limit)
+            self._official = [item['tag_name'] for item in releases if not item['prerelease']][:10]
+            self._prereleases = [item['tag_name'] for item in releases if item['prerelease']][:5]
+            self._set_releases()
+            self.selected_release = self.releases[0] if self.releases else ""
         except Exception as e:
             self.update_status(str(e))
 
-    def _set_releases(self, official: list[str]):
-        """Set the releases list, appending the dev entry if experimental is enabled."""
+    def _set_releases(self):
+        """Rebuild the dropdown: stable releases, plus betas + the dev branch when experimental."""
         if self.allow_experimental:
-            self.releases = official + [DEV_RELEASE]
+            self.releases = self._official + self._prereleases + [DEV_RELEASE]
         else:
-            self.releases = official
+            self.releases = self._official
 
     def on_selected_release(self, instance, value):
         log.info(f"Selected release: {self.selected_release}")
@@ -76,10 +93,9 @@ class UpdateScreen(Screen):
         self.status = self.status + status + "\n"
 
     def on_allow_experimental(self, instance, value):
-        # Rebuild the list from the current official releases
-        official = [r for r in self.releases if r != DEV_RELEASE]
-        self._set_releases(official)
-        if not value and self.selected_release == DEV_RELEASE:
+        self._set_releases()
+        # A now-hidden selection (beta or dev entry) falls back to the newest stable.
+        if not value and self.selected_release not in self.releases:
             self.selected_release = self.releases[0] if self.releases else ""
 
     def install_release(self):
@@ -130,28 +146,29 @@ class UpdateScreen(Screen):
     async def perform_install(self, dt):
         self.update_status(f"Performing installation of a new release: {self.current_release} -> {self.selected_release}")
 
-        project_folder = "/rotary-controller-python"
-        if not os.path.isdir(project_folder):
-            self.update_status(f"Project folder not found at the expected location: {project_folder}")
+        if not os.path.isdir(PROJECT_FOLDER):
+            self.update_status(f"Project folder not found at the expected location: {PROJECT_FOLDER}")
             return
 
-        self.update_status(f"Found project folder at: {project_folder}")
-        os.chdir(project_folder)
+        self.update_status(f"Found project folder at: {PROJECT_FOLDER}")
+        os.chdir(PROJECT_FOLDER)
 
+        # Install with the app's own venv pip (app-run.sh activates it, but be explicit).
+        pip = VENV_PIP if os.path.exists(VENV_PIP) else "pip"
         if self.selected_release == DEV_RELEASE:
             commands = [
                 "git remote set-branches origin '*'",
                 "git fetch --all",
                 "git checkout dev",
                 "git pull origin dev",
-                "pip install .",
+                f"{pip} install .",
                 "reboot",
             ]
         else:
             commands = [
                 "git fetch --all --tags",
                 f"git checkout tags/{self.selected_release}",
-                "pip install .",
+                f"{pip} install .",
                 "reboot",
             ]
 

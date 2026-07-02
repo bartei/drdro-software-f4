@@ -11,13 +11,15 @@ from kivy.logger import Logger
 from kivy.properties import StringProperty, BooleanProperty, NumericProperty
 from kivy.uix.boxlayout import BoxLayout
 
+from dro.dispatchers.saving_dispatcher import SETTINGS_FOLDER
 from dro.utils.kv_loader import load_kv
 
 log = Logger.getChild(__name__)
 load_kv(__file__)
 
 FRAME_HISTORY_SIZE = 300  # ~10 seconds at 30fps
-PROFILE_DIR = Path.home() / ".config" / "rotary-controller-python" / "profiles"
+# cProfile dumps — NOT "profiles/", which holds the machine profiles (dro/profiles.py).
+PROFILE_DIR = SETTINGS_FOLDER / "profiling"
 
 
 class ProfilingPanel(BoxLayout):

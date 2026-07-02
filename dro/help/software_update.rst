@@ -22,7 +22,8 @@ available releases list. These may contain new features but are
 less tested.
 
 - **OFF (default):** Only stable, tagged releases are shown.
-- **ON:** Includes "dev (experimental)" and release candidates.
+- **ON:** Also lists beta pre-releases (vX.Y.Z-beta.N) and the
+  "dev (experimental)" branch build.
 
 Available Releases
 ^^^^^^^^^^^^^^^^^^
