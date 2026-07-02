@@ -2,6 +2,40 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-07-02)
+
+### Bug Fixes
+
+- **update**: Point software updates at drdro-software-f4, not RCP
+  ([`5a0a83a`](https://github.com/bartei/drdro-software-f4/commit/5a0a83acdef850f05af72d0fd99ab199ae2003ac))
+
+### Code Style
+
+- **ui**: Soften RetroProgressBar fill, drop the frame
+  ([`1c18ce6`](https://github.com/bartei/drdro-software-f4/commit/1c18ce69276756e2720d43a2ad5ec4f3eb9070cf))
+
+### Continuous Integration
+
+- Beta prereleases on dev; fold beta notes into stable releases
+  ([`61a1d21`](https://github.com/bartei/drdro-software-f4/commit/61a1d21108cc91be97245f2fe334cd4bdd2db502))
+
+### Documentation
+
+- Resume + design notes for filter UI, profiles, compat banner, update-screen fix
+  ([`8d136d8`](https://github.com/bartei/drdro-software-f4/commit/8d136d8fc04233c532bbc99a457e5c4e89bc3183))
+
+### Features
+
+- **profiles**: Machine profiles + firmware-update settings backup/restore
+  ([`553d8b5`](https://github.com/bartei/drdro-software-f4/commit/553d8b5487f9b0534fe8bf8c1212a1c2e8bb38e6))
+
+- **scales**: Encoder filter setting on the input screen (scales.filt)
+  ([`c7f85c3`](https://github.com/bartei/drdro-software-f4/commit/c7f85c364ee93559b2b8f903d3ff39d6c38c6e37))
+
+- **update**: Firmware-compat check + tap-to-update banner on home
+  ([`3e2dd0a`](https://github.com/bartei/drdro-software-f4/commit/3e2dd0afbc016f9bb640043d5dd34b18264d505d))
+
+
 ## v1.3.0 (2026-07-01)
 
 ### Chores
