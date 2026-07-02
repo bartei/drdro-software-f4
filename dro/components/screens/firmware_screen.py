@@ -11,6 +11,7 @@ from kivy.properties import BooleanProperty, NumericProperty, StringProperty, Li
 from kivy.uix.screenmanager import Screen
 
 from dro.comms.updater import FirmwareUpdater
+from dro.profiles import ProfileManager
 from dro.utils.kv_loader import load_kv
 
 log = Logger.getChild(__name__)
@@ -135,6 +136,16 @@ class FirmwareScreen(Screen):
         self.busy = True
         self._set_progress(0.0)
         try:
+            # Back up the board settings before touching the firmware: a timestamped
+            # profile for manual rollback, plus an in-memory snapshot to auto-restore
+            # anything a settings-layout change wipes out.
+            profiles = ProfileManager(self.app.board)
+            snapshot = await profiles.snapshot_board()
+            backup = await profiles.backup_current(
+                note=f"automatic backup before firmware update to {rel['tag']}"
+            )
+            self._status(f"Settings backed up to profile '{backup.stem}'")
+
             self._status(f"Downloading {rel['tag']} ({rel['size']} bytes)…")
             tmp = os.path.join(tempfile.gettempdir(), f"drdro-{rel['tag']}.bin")
             await self.updater.download_asset(rel["url"], tmp, on_progress=self._set_progress)
@@ -150,6 +161,16 @@ class FirmwareScreen(Screen):
                     break
                 await asyncio.sleep(0.3)
             await self._refresh_status()
+
+            # Auto-restore any board settings the update wiped (e.g. a settings-layout
+            # change falling back to defaults). No-op when everything survived.
+            if self.app.board.connected and snapshot:
+                restored = await profiles.restore_board_settings(snapshot)
+                if restored:
+                    self._status(f"Restored {restored} board setting(s) lost in the update")
+                else:
+                    self._status("Board settings verified — nothing lost in the update")
+
             self._status(f"Update complete (bank {res.get('bank')}, version {res.get('version')})")
         except Exception as e:                        # noqa: BLE001 — report any failure to the UI
             log.exception("firmware update failed")

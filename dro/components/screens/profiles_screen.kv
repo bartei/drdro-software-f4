@@ -1,0 +1,65 @@
+#: import ScreenHeader dro.components.widgets.screen_header
+
+<ProfileRow>:
+  height: 60
+  size_hint_y: None
+  orientation: "horizontal"
+  spacing: 5
+  Label:
+    size_hint_x: 0.35
+    text: root.name
+    font_size: app.formats.font_size
+    color: (0.7, 0.7, 0.7, 1) if root.kind == "backup" else (1, 1, 1, 1)
+  Label:
+    size_hint_x: 0.4
+    text: root.detail
+    font_size: app.formats.font_size * 0.55
+  Button:
+    size_hint_x: None
+    width: 140
+    text: "Apply"
+    font_size: app.formats.font_size
+    disabled: root.screen.busy if root.screen else False
+    on_release: root.screen.confirm_apply(root.entry)
+  Button:
+    size_hint_x: None
+    width: 140
+    text: "Delete"
+    font_size: app.formats.font_size
+    disabled: root.screen.busy if root.screen else False
+    on_release: root.screen.confirm_delete(root.entry)
+
+<ProfilesScreen>:
+  BoxLayout:
+    orientation: "vertical"
+    padding: 10
+    ScreenHeader:
+      text: "Machine Profiles"
+
+    BoxLayout:
+      orientation: "horizontal"
+      size_hint_y: None
+      height: 60
+      spacing: 10
+      Button:
+        text: "Save current configuration as new profile"
+        font_size: app.formats.font_size
+        disabled: root.busy
+        on_release: root.prompt_save()
+
+    ScrollView:
+      do_scroll_x: False
+      do_scroll_y: True
+      GridLayout:
+        id: profiles_grid
+        cols: 1
+        spacing: 1
+        size_hint_y: None
+        height: self.minimum_height
+
+    Label:
+      size_hint_y: None
+      height: 40
+      text: root.status_text
+      font_size: app.formats.font_size * 0.55
+      color: 0.7, 0.7, 0.7, 1

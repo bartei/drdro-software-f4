@@ -60,6 +60,9 @@ class Manager(ScreenManager):
         from dro.components.screens.els_setup_screen import ElsSetupScreen
         self.add_widget(ElsSetupScreen(name="els_setup", els=self.app.els))
 
+        from dro.components.screens.profiles_screen import ProfilesScreen
+        self.add_widget(ProfilesScreen(name="profiles"))
+
         from dro.components.screens.update_screen import UpdateScreen
         self.add_widget(UpdateScreen(name="update"))
 
