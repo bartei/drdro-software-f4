@@ -94,6 +94,39 @@
     sections.forEach(function (s) { obs.observe(s); });
   }
 
+  /* Video facades — swap the thumbnail for a player only on click ---------- */
+  document.querySelectorAll(".video-thumb[data-ytid]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.getAttribute("data-ytid");
+      var embed = document.createElement("div");
+      embed.className = "video-embed";
+      var ifr = document.createElement("iframe");
+      ifr.src = "https://www.youtube-nocookie.com/embed/" + id + "?autoplay=1&rel=0";
+      ifr.title = btn.getAttribute("aria-label") || "YouTube video player";
+      ifr.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      ifr.setAttribute("allowfullscreen", "");
+      embed.appendChild(ifr);
+      btn.replaceWith(embed);
+    });
+  });
+
+  /* Lazy-load thumbnails via data-bg (avoids 14 image requests before paint) */
+  var bgImgs = document.querySelectorAll(".video-thumb[data-bg]");
+  if (bgImgs.length && "IntersectionObserver" in window) {
+    var bo = new IntersectionObserver(function (entries, obs) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          var el = en.target;
+          el.style.backgroundImage = "url('" + el.getAttribute("data-bg") + "')";
+          obs.unobserve(el);
+        }
+      });
+    }, { rootMargin: "200px" });
+    bgImgs.forEach(function (el) { bo.observe(el); });
+  } else {
+    bgImgs.forEach(function (el) { el.style.backgroundImage = "url('" + el.getAttribute("data-bg") + "')"; });
+  }
+
   /* Year in footer --------------------------------------------------------- */
   var y = document.querySelector("[data-year]");
   if (y) y.textContent = new Date().getFullYear();
