@@ -1,0 +1,55 @@
+name: Deploy static content
+
+# Mock pipeline: publishes a placeholder page to this repo's own subfolder on
+# the static content host, proving out the deploy path (self-hosted runner ->
+# rsync over SSH -> nginx-static). Real content generation replaces the
+# "Build page" step later; the deploy step should not need to change.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, nixos]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build page
+        run: |
+          mkdir -p public
+          cat > public/index.html <<HTML
+          <!doctype html>
+          <html>
+            <head><title>${{ github.event.repository.name }}</title></head>
+            <body>
+              <h1>${{ github.event.repository.name }}</h1>
+              <p>Mock placeholder page — real content generation lands here later.</p>
+              <p>Commit: ${{ github.sha }}</p>
+              <p>Deployed: $(date -u +%Y-%m-%dT%H:%M:%SZ)</p>
+            </body>
+          </html>
+          HTML
+
+      - name: Deploy via rsync
+        env:
+          DEPLOY_HOST: ${{ secrets.STATIC_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.STATIC_DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.STATIC_DEPLOY_PATH }}
+          DEPLOY_KEY: ${{ secrets.STATIC_DEPLOY_SSH_KEY }}
+        run: |
+          umask 077
+          echo "$DEPLOY_KEY" > deploy_key
+          chmod 600 deploy_key
+          trap 'rm -f deploy_key' EXIT
+
+          TARGET_DIR="$DEPLOY_PATH/${{ github.event.repository.name }}"
+          SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i deploy_key"
+
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p $TARGET_DIR"
+          rsync -avz --delete \
+            --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r \
+            -e "ssh $SSH_OPTS" \
+            public/ "$DEPLOY_USER@$DEPLOY_HOST:$TARGET_DIR/"
