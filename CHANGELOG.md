@@ -2,6 +2,38 @@
 
 <!-- version list -->
 
+## v1.5.0-beta.1 (2026-07-03)
+
+### Chores
+
+- Move documentation website to its own repo
+  ([`dc9ef38`](https://github.com/bartei/drdro-software-f4/commit/dc9ef38eab141dc766af1ef43ff71c151523f1bd))
+
+### Continuous Integration
+
+- Add mock static content deploy pipeline
+  ([`74597e2`](https://github.com/bartei/drdro-software-f4/commit/74597e2c4e4899b4fa04b566e3e3553722081851))
+
+- Remove static content deploy pipeline
+  ([`1bf39c8`](https://github.com/bartei/drdro-software-f4/commit/1bf39c8bd6ab2680d3932f9ae8823542c6948279))
+
+### Documentation
+
+- **website**: Add documentation site and wire static deploy
+  ([`ceacb6a`](https://github.com/bartei/drdro-software-f4/commit/ceacb6ab5a3b7be03b504abe20c3a518c30ec744))
+
+- **website**: Add Videos page with creator + community demos
+  ([`2521e64`](https://github.com/bartei/drdro-software-f4/commit/2521e64c907b5037001c95dd65fb6ca6d3637cb7))
+
+- **website**: Use the drDRO logo for site brand and favicon
+  ([`807bba5`](https://github.com/bartei/drdro-software-f4/commit/807bba5a88f8b94f139d2e1fdd5629adade988c0))
+
+### Features
+
+- Add distance-to-go target and graphic positioning aid to coordbars
+  ([`45772ed`](https://github.com/bartei/drdro-software-f4/commit/45772eda3fb8051f3d5988cd8ba683e5bb1b0bec))
+
+
 ## v1.4.0 (2026-07-02)
 
 ### Bug Fixes
