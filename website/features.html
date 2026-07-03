@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Features — drDRO</title>
+  <meta name="description" content="Complete functionality reference for drDRO: DRO read-out, jog/index/ELS motion, scale inputs, encoder filtering, pattern plotting, firmware updates, profiles and more.">
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html"><img class="logo" src="assets/img/logo.svg" alt=""> dr<b>DRO</b></a>
+    <button class="nav-toggle" aria-label="Menu">&#8801;</button>
+    <div class="nav-links">
+      <a href="index.html">Overview</a>
+      <a href="features.html" class="active">Features</a>
+      <a href="screenshots.html">Screenshots</a>
+      <a href="flash.html">Get Started</a>
+      <a href="develop.html">Develop</a>
+      <a href="reference.html">Reference</a>
+      <a class="nav-cta" href="https://github.com/bartei/drdro-software-f4" target="_blank" rel="noopener">GitHub &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<header class="section-tight" style="padding-top:48px">
+  <div class="wrap">
+    <span class="eyebrow">Feature reference</span>
+    <h1 style="font-size:clamp(2rem,4vw,2.8rem);margin:.2rem 0 .6rem">Everything drDRO does</h1>
+    <p class="lead">A screen-by-screen tour of the whole application — the read-out, the four motion modes,
+      every configuration area, and the maintenance tooling. Click any screenshot to enlarge it.</p>
+  </div>
+</header>
+
+<div class="wrap section-tight" style="padding-top:0">
+<div class="doc-layout">
+
+  <!-- TOC -->
+  <aside class="toc">
+    <h5>On this page</h5>
+    <a href="#home">Home &amp; modes</a>
+    <a href="#inputs">Scale inputs</a>
+    <a href="#axes">Axes &amp; transforms</a>
+    <a href="#servo">Servo &amp; motion</a>
+    <a href="#els">Electronic lead screw</a>
+    <a href="#plot">Pattern plotting</a>
+    <a href="#appearance">Formats &amp; look</a>
+    <a href="#network">Network / Wi-Fi</a>
+    <a href="#profiles">Machine profiles</a>
+    <a href="#firmware">Board firmware</a>
+    <a href="#software">Software update</a>
+    <a href="#system">System &amp; maintenance</a>
+    <a href="#diagnostics">Diagnostics</a>
+  </aside>
+
+  <!-- CONTENT -->
+  <div>
+
+    <!-- HOME -->
+    <section id="home" class="anchor-h">
+      <h2>Home screen &amp; operating modes</h2>
+      <p>The home screen is the working surface. A left <strong>action rail</strong> carries the persistent
+        controls; the centre shows the axis read-outs; the right column has per-axis <em>Zero</em> buttons.
+        The bottom strip changes with the selected mode.</p>
+
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/home-dro.png" alt="Home in DRO mode" data-zoom="assets/shots/home-dro.png" data-cap="Home — DRO mode"></div>
+        <div>
+          <h3>The action rail</h3>
+          <ul>
+            <li><strong>MM / IN</strong> — toggle metric / imperial. Digits and feed units follow the Formats settings.</li>
+            <li><strong>P0 / P…</strong> — cycle tool / preset offset slots.</li>
+            <li><strong>ABS / INC</strong> — absolute vs incremental read-out.</li>
+            <li><strong>Wand</strong> — pattern &amp; plot tools (opens the plot view).</li>
+            <li><strong>Mode</strong> — the current mode (IDX / ELS / JOG / DRO); tap to switch.</li>
+            <li><strong>Gears</strong> — jump into Setup.</li>
+            <li><strong>COM / version</strong> — link state and app version pinned at the bottom.</li>
+          </ul>
+          <p class="small muted">A full-width amber banner appears here automatically when the connected board firmware is older than the app requires — tap it to jump straight to the firmware updater.</p>
+        </div>
+      </div>
+
+      <h3>The four modes</h3>
+      <div class="grid grid-2">
+        <div class="card">
+          <span class="chip amber">IDX</span>
+          <h4>Index</h4>
+          <p>Rotary-table work: set a number of <em>divisions</em>, then step to each index position with the arrow keys. Shows current position, offset, division count and target speed.</p>
+        </div>
+        <div class="card">
+          <span class="chip amber">ELS</span>
+          <h4>Electronic lead screw</h4>
+          <p>Threading and power-feed synchronised to the spindle. Pick a thread pitch (mm/TPI) and the follower axis tracks the spindle through the configured ratio.</p>
+        </div>
+        <div class="card">
+          <span class="chip amber">JOG</span>
+          <h4>Jog</h4>
+          <p>Continuous jogging. A live speed field (capped by the servo max), a position read-out, and <em>Jog&nbsp;&#8592;</em> / <em>Start</em> / <em>Jog&nbsp;&#8594;</em> controls.</p>
+        </div>
+        <div class="card">
+          <span class="chip amber">DRO</span>
+          <h4>Read-out</h4>
+          <p>Pure digital read-out — no motion controls, the largest possible digits, per-axis feed-rate underneath.</p>
+        </div>
+      </div>
+      <div class="grid grid-2" style="margin-top:20px">
+        <div class="feature-media"><img src="assets/shots/home-index.png" alt="Index mode" data-zoom="assets/shots/home-index.png" data-cap="Index mode — divisions & indexed moves"></div>
+        <div class="feature-media"><img src="assets/shots/home-els.png" alt="ELS mode" data-zoom="assets/shots/home-els.png" data-cap="ELS mode — thread pitch selection"></div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- INPUTS -->
+    <section id="inputs" class="anchor-h">
+      <h2>Scale inputs &amp; encoder filtering</h2>
+      <p>drDRO reads up to <strong>four hardware scale inputs</strong> — glass scales, magnetic encoders or a
+        spindle encoder. <em>Setup &#8594; Inputs</em> lists them; each opens a per-input configuration screen.</p>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/input.png" alt="Scale input configuration" data-zoom="assets/shots/input.png" data-cap="Scale Input 0 — spindle mode, encoder filter, ratio"></div>
+        <div>
+          <h3>Per-input settings</h3>
+          <ul>
+            <li><strong>Spindle Mode</strong> — mark this input as the spindle source for sync / ELS.</li>
+            <li><strong>Encoder Filter</strong> — the board's hardware input filter (0&ndash;15). A live readout shows the reject time and maximum frequency for the chosen level (e.g. level&nbsp;5 &rarr; rejects pulses &lt;&nbsp;160&nbsp;ns, max&nbsp;&approx;&nbsp;3.12&nbsp;MHz). Persisted in the board flash and re-applied on connect.</li>
+            <li><strong>Ratio Numerator / Denominator</strong> — counts-to-units calibration for this scale (e.g. 1&nbsp;/&nbsp;200 for a 200&nbsp;count/mm encoder).</li>
+          </ul>
+          <p class="small muted">The encoder filter reprograms the STM32 timer's input filter live, so a noisy shop encoder can be cleaned up without recompiling firmware.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- AXES -->
+    <section id="axes" class="anchor-h">
+      <h2>Axes &amp; transforms</h2>
+      <p>Axes are the <em>display</em> abstraction layered on top of the raw scale inputs. <em>Setup &#8594; Axes</em>
+        lists the configured axes (X, Y, Z, A&hellip;) and lets you add or remove them.</p>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/axis.png" alt="Axis configuration" data-zoom="assets/shots/axis.png" data-cap="Axis X — name, sync ratio and transform"></div>
+        <div>
+          <h3>Per-axis settings</h3>
+          <ul>
+            <li><strong>Axis Name</strong> — the label shown on the read-out (X / Y / Z / A or anything you like).</li>
+            <li><strong>Spindle Mode</strong> — whether this axis represents the spindle.</li>
+            <li><strong>Sync Ratio (Num / Den)</strong> — the user gear ratio folded into the live sync calculation.</li>
+            <li><strong>Transform Type</strong> — <em>Identity</em> (one input straight through) or <em>Sum</em> (combine inputs, e.g. a compound/summed axis).</li>
+            <li><strong>Scale Input</strong> — which hardware input(s) drive this axis.</li>
+          </ul>
+          <p class="small">Editing is confirmed with <strong>Apply Transform</strong>; <strong>Remove Axis</strong> deletes it.</p>
+        </div>
+      </div>
+      <div class="feature-media" style="max-width:640px;margin:20px 0"><img src="assets/shots/axes-setup.png" alt="Axes configuration list with Add Axis" data-zoom="assets/shots/axes-setup.png" data-cap="Axes Configuration — the axis list with + Add Axis"></div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- SERVO -->
+    <section id="servo" class="anchor-h">
+      <h2>Servo &amp; motion control</h2>
+      <p><em>Setup &#8594; Servo</em> configures the driven axis (stepper/servo). Speed and acceleration live in the
+        board's flash — read on connect, written and saved when you change them.</p>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/servo.png" alt="Servo settings" data-zoom="assets/shots/servo.png" data-cap="Servo Settings — gearing, speeds, rotary-table & ELS"></div>
+        <div>
+          <h3>Servo settings</h3>
+          <ul>
+            <li><strong>Ratio Numerator / Denominator</strong> — steps-per-turn gearing (e.g. 360&nbsp;/&nbsp;40000).</li>
+            <li><strong>Maximum Speed</strong> (steps/s) — the step-pulse cadence ceiling. <em>Board-stored.</em></li>
+            <li><strong>Acceleration</strong> (steps/s&sup2;) — ramp rate. <em>Board-stored.</em></li>
+            <li><strong>Units per 1 turn</strong> — rotary-table degrees (or units) per revolution.</li>
+            <li><strong>ELS Mode</strong> &amp; related fields — enable lead-screw behaviour and its parameters.</li>
+          </ul>
+          <p class="small muted">A separate board-side <em>index feedrate</em> caps offset/indexing ramps so a move never has to lower the max speed a simultaneous sync follower is riding.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- ELS -->
+    <section id="els" class="anchor-h">
+      <h2>Electronic lead screw (ELS)</h2>
+      <p><em>Setup &#8594; ELS</em> assigns the machine roles used by lead-screw and lathe workflows.</p>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/els-setup.png" alt="ELS setup axis roles" data-zoom="assets/shots/els-setup.png" data-cap="ELS Setup — spindle, saddle and cross-slide roles"></div>
+        <div>
+          <h3>Axis roles</h3>
+          <ul>
+            <li><strong>Spindle Axis</strong> — the encoder that measures spindle rotation.</li>
+            <li><strong>Saddle Axis (Z)</strong> — the longitudinal lead-screw axis (threading / feed along the bed).</li>
+            <li><strong>Cross Slide Axis (X)</strong> — the cross-feed axis.</li>
+          </ul>
+          <p>With roles assigned, ELS mode on the home screen synchronises the saddle to the spindle at the chosen thread pitch, driving repeatable single-point threading and powered feeds.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- PLOT -->
+    <section id="plot" class="anchor-h">
+      <h2>Pattern plotting</h2>
+      <p>The plot view is an interactive coordinate canvas for laying out and following hole patterns. Reach it
+        from the wand icon on the home rail.</p>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/plot.png" alt="Plot view with pattern points" data-zoom="assets/shots/plot.png" data-cap="Plot View — pattern points, crosshair and distance-to-go"></div>
+        <div>
+          <h3>What it shows</h3>
+          <ul>
+            <li><strong>Circle, line &amp; rectangular</strong> patterns computed from a popup form.</li>
+            <li><strong>Pan &amp; pinch-zoom</strong> canvas with a live zoom percentage.</li>
+            <li><strong>Distance to go</strong>, <strong>selected point</strong> and <strong>tool position</strong> overlays per axis.</li>
+            <li>Toolbar: zoom, X-Y fit, pattern picker, grid toggle, and previous / next point stepping with a centre-on-tool button.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- APPEARANCE -->
+    <section id="appearance" class="anchor-h">
+      <h2>Formats &amp; appearance</h2>
+      <p>drDRO is fully themeable. <em>Setup &#8594; Formats</em> controls number formatting and display preferences,
+        with dedicated colour and font pickers.</p>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/formats.png" alt="Format settings" data-zoom="assets/shots/formats.png" data-cap="Format Settings — digits, units and display"></div>
+        <div>
+          <h3>Format settings</h3>
+          <ul>
+            <li><strong>Metric / Imperial position &amp; speed digits</strong> — decimal places per unit system.</li>
+            <li><strong>Speed units</strong> — m/min, ft/min and angular RPM formatting.</li>
+            <li><strong>Angle digits</strong> for rotary read-outs.</li>
+            <li>Display colour, font &amp; size, key-press volume, hide-mouse-cursor, and error-reporting toggles.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="grid grid-2" style="margin-top:24px">
+        <div>
+          <div class="feature-media"><img src="assets/shots/color-picker.png" alt="Colour picker" data-zoom="assets/shots/color-picker.png" data-cap="Colour Picker — RGBA / HSV + wheel"></div>
+          <h4>Colour picker</h4>
+          <p>Full RGBA + HSV picker with a colour wheel and hex field — set the amber read-out colour to whatever suits your panel.</p>
+        </div>
+        <div>
+          <div class="feature-media"><img src="assets/shots/font-picker.png" alt="Font picker" data-zoom="assets/shots/font-picker.png" data-cap="Font Picker — seven-segment & modern faces"></div>
+          <h4>Font picker</h4>
+          <p>Choose the read-out typeface — the classic seven-segment <code>DSEG14</code> faces, or clean modern fonts (Kode Mono, Manrope), each previewed live.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- NETWORK -->
+    <section id="network" class="anchor-h">
+      <h2>Network / Wi-Fi</h2>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/network.png" alt="Network settings" data-zoom="assets/shots/network.png" data-cap="Network Settings — Wi-Fi via NetworkManager"></div>
+        <div>
+          <p><em>Setup &#8594; Network</em> manages Wi-Fi through NetworkManager (<code>nmcli</code>): enable the radio,
+            see the interface, MAC and link state, pick an SSID, enter the password and apply — plus the resulting IP properties.</p>
+          <p class="small muted">On the appliance image this configures the Pi's onboard or USB Wi-Fi directly, so a headless machine can join a network from the touchscreen.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- PROFILES -->
+    <section id="profiles" class="anchor-h">
+      <h2>Machine profiles</h2>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/profiles.png" alt="Machine profiles" data-zoom="assets/shots/profiles.png" data-cap="Machine Profiles — save & swap full setups"></div>
+        <div>
+          <p><em>Setup &#8594; Profiles</em> snapshots a complete machine configuration — the board-persisted variables
+            <em>and</em> the host-side axis / input / servo / ELS settings — into a named profile.</p>
+          <ul class="ticks">
+            <li>Save the current configuration as a new profile.</li>
+            <li>Apply a profile to switch machines: it takes a timestamped backup, rewrites the host files, pushes &amp; saves the board section, then restarts the app.</li>
+            <li>Each profile records its name, creation date and the software / firmware versions it was made with.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- FIRMWARE -->
+    <section id="firmware" class="anchor-h">
+      <h2>Board firmware update &amp; bank management</h2>
+      <p>drDRO flashes the STM32 board's firmware <strong>over the same RS-485 wire</strong> — no ST-Link, no
+        moving cables. The board runs a dual-bank IAP bootloader, so updates are safe and reversible.</p>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/firmware.png" alt="Firmware screen" data-zoom="assets/shots/firmware.png" data-cap="Firmware — status, boot-bank selector, GitHub install"></div>
+        <div>
+          <h3>What you can do</h3>
+          <ul>
+            <li><strong>See status</strong> — current firmware version and the active bank.</li>
+            <li><strong>Select the boot bank</strong> for the next reboot (Bank&nbsp;0 / Bank&nbsp;1) and reboot the board on demand.</li>
+            <li><strong>Install from GitHub</strong> — refresh the release list (optionally including pre-releases), pick a version, and flash it over YMODEM with a live progress bar and status log.</li>
+            <li><strong>Backup &amp; restore</strong> — the updater snapshots board settings before flashing and restores anything a settings-layout change would have wiped.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout info"><div class="ci">&#128161;</div><div>
+        <p>The home-screen <b>compatibility banner</b> watches the connected firmware version and prompts an update whenever the app starts using a newer protocol variable — so the software and board never drift out of sync.</p>
+      </div></div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- SOFTWARE UPDATE -->
+    <section id="software" class="anchor-h">
+      <h2>Software self-update</h2>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/update.png" alt="Software update screen" data-zoom="assets/shots/update.png" data-cap="Software Update — install app releases from GitHub"></div>
+        <div>
+          <p><em>Setup &#8594; Update</em> updates the drDRO <em>app itself</em>. It lists the releases published on GitHub,
+            shows the currently installed version, and installs the one you pick into the appliance's app venv.</p>
+          <ul class="ticks">
+            <li>Refresh available releases from GitHub (TLS-verified).</li>
+            <li>Optionally allow experimental / beta prereleases.</li>
+            <li>Install the selected release; a status pane reports progress.</li>
+          </ul>
+          <p class="small muted">This is distinct from the board firmware updater above — one updates Python, the other flashes the STM32.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- SYSTEM -->
+    <section id="system" class="anchor-h">
+      <h2>System &amp; maintenance</h2>
+      <div class="feature">
+        <div class="feature-media"><img src="assets/shots/system.png" alt="System screen" data-zoom="assets/shots/system.png" data-cap="System — Raspberry-Pi-only maintenance"></div>
+        <div>
+          <p><em>Setup &#8594; System</em> exposes Raspberry-Pi maintenance: storage usage, growing the root partition to
+            fill the SD card, and rebooting. On a desktop it simply reports that system tools are Pi-only.</p>
+          <p class="small muted">On the appliance image the root filesystem also auto-grows on first boot, so this is mostly for inspection and reboots.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr" style="margin:48px 0">
+
+    <!-- DIAGNOSTICS -->
+    <section id="diagnostics" class="anchor-h">
+      <h2>Diagnostics</h2>
+      <p>Three screens help you see what the machine is doing under the hood.</p>
+      <div class="grid grid-3">
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="background:#000"><img src="assets/shots/stats.png" alt="Stats screen" data-zoom="assets/shots/stats.png" data-cap="Stats — versions, link state, comm rate"></div>
+          <div style="padding:18px">
+            <h4 class="mt0">Stats</h4>
+            <p class="small">Software &amp; firmware versions, link state, live <code>sta</code> poll rate, comm error count and UI frame rate.</p>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="background:#000"><img src="assets/shots/profiling.png" alt="Profiling screen" data-zoom="assets/shots/profiling.png" data-cap="Profiling — FPS & frame-time statistics"></div>
+          <div style="padding:18px">
+            <h4 class="mt0">Profiling</h4>
+            <p class="small">Live FPS (min/max/avg) and frame timing, with start/stop capture and a reset — for chasing UI performance.</p>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="background:#000"><img src="assets/shots/logs.png" alt="Logs screen" data-zoom="assets/shots/logs.png" data-cap="Logs — browse & open Kivy log files"></div>
+          <div style="padding:18px">
+            <h4 class="mt0">Logs</h4>
+            <p class="small">Browse the on-device log files and open one in the built-in log viewer — handy for field debugging.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="cta" style="margin-top:56px">
+      <h2>Ready to run it?</h2>
+      <p class="lead" style="margin:0 auto 1.4rem">Flash the appliance image to an SD card, or run the app on your Linux desktop.</p>
+      <div class="btn-row" style="justify-content:center">
+        <a class="btn btn-primary btn-lg" href="flash.html">Get started &#8594;</a>
+        <a class="btn btn-ghost btn-lg" href="screenshots.html">See all screenshots</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<footer class="footer">
+  <div class="wrap fnote">&copy; <span data-year>2026</span> drDRO project · GPL-3.0-or-later · <a href="index.html">Home</a></div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local development on Linux — drDRO</title>
+  <meta name="description" content="Run and develop drDRO on a Linux desktop with uv: clone, sync, configure the serial port, and launch the Kivy app. Includes NixOS notes, tests and build.">
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html"><img class="logo" src="assets/img/logo.svg" alt=""> dr<b>DRO</b></a>
+    <button class="nav-toggle" aria-label="Menu">&#8801;</button>
+    <div class="nav-links">
+      <a href="index.html">Overview</a>
+      <a href="features.html">Features</a>
+      <a href="screenshots.html">Screenshots</a>
+      <a href="flash.html">Get Started</a>
+      <a href="develop.html" class="active">Develop</a>
+      <a href="reference.html">Reference</a>
+      <a class="nav-cta" href="https://github.com/bartei/drdro-software-f4" target="_blank" rel="noopener">GitHub &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<header class="section-tight" style="padding-top:48px">
+  <div class="wrap">
+    <span class="eyebrow">Local development</span>
+    <h1 style="font-size:clamp(2rem,4.4vw,3rem);margin:.2rem 0 .6rem">Run drDRO on your Linux desktop</h1>
+    <p class="lead">drDRO is a normal Python / Kivy application managed with <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener"><code>uv</code></a>.
+      You can run and hack on the whole UI on any Linux machine — a board is optional; without one the app simply
+      shows a disconnected link.</p>
+  </div>
+</header>
+
+<div class="wrap section-tight" style="padding-top:0">
+<div class="doc-layout">
+
+  <aside class="toc">
+    <h5>On this page</h5>
+    <a href="#prereqs">Prerequisites</a>
+    <a href="#clone">Get the code</a>
+    <a href="#install">Install deps</a>
+    <a href="#serial">Serial port</a>
+    <a href="#run">Run the app</a>
+    <a href="#nixos">NixOS notes</a>
+    <a href="#test">Tests &amp; build</a>
+    <a href="#layout">Project layout</a>
+    <a href="#standards">Coding standards</a>
+  </aside>
+
+  <div>
+
+    <section id="prereqs" class="anchor-h">
+      <h2>Prerequisites</h2>
+      <ul class="ticks">
+        <li><strong>Python 3.10+</strong> (the dev venv pins 3.11).</li>
+        <li><strong><a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener">uv</a></strong> — the project's package / venv manager.</li>
+        <li>A working <strong>OpenGL</strong> stack for Kivy's SDL2 window (any desktop GL is fine).</li>
+        <li><em>Optional:</em> the drDRO board on a USB-serial / RS-485 adapter to see live data.</li>
+      </ul>
+      <p class="small muted">Latest app version: <span class="chip amber"><span class="gh-latest" data-repo="bartei/drdro-software-f4">v1.4.0</span></span></p>
+    </section>
+
+    <hr class="hr" style="margin:36px 0">
+
+    <section id="clone" class="anchor-h">
+      <h2>1 · Get the code</h2>
+      <div class="code">
+        <div class="code-head"><span>bash</span><button class="copy-btn">Copy</button></div>
+<pre><code>git clone https://github.com/bartei/drdro-software-f4.git
+cd drdro-software-f4</code></pre>
+      </div>
+    </section>
+
+    <section id="install" class="anchor-h">
+      <h2>2 · Install dependencies</h2>
+      <p><code>uv sync</code> creates a virtual environment and installs everything from the locked
+        <code>uv.lock</code> — Kivy, pyserial, pydantic, aiohttp and the rest.</p>
+      <div class="code">
+        <div class="code-head"><span>bash</span><button class="copy-btn">Copy</button></div>
+<pre><code>uv sync</code></pre>
+      </div>
+    </section>
+
+    <section id="serial" class="anchor-h">
+      <h2>3 · Point it at your board (optional)</h2>
+      <p>Serial settings live in <code>config.ini</code> at the repo root. Set <code>serial_port</code> to your
+        adapter — a stable <code>/dev/serial/by-id/&hellip;</code> path is best, or a plain <code>/dev/ttyUSB0</code>.</p>
+      <div class="code">
+        <div class="code-head"><span>config.ini</span><button class="copy-btn">Copy</button></div>
+<pre><code><span class="tok">[device]</span>
+serial_port = /dev/ttyUSB0
+baudrate    = 115200
+current_mode = 1
+scales_count = 4</code></pre>
+      </div>
+      <div class="callout info">
+        <div class="ci">&#128220;</div>
+        <div><p>On most distros the serial device is owned by the <code>dialout</code> group. Add yourself and re-login
+          so you can open the port without <code>sudo</code>:</p>
+          <div class="code" style="margin:.6rem 0 0">
+            <div class="code-head"><span>bash</span><button class="copy-btn">Copy</button></div>
+<pre><code>sudo usermod -aG dialout "$USER"   <span class="cmt"># then log out & back in</span></code></pre>
+          </div>
+        </div>
+      </div>
+      <p class="small muted">No board? Skip this — the app launches fine and just shows <code>COM</code> disconnected;
+        every configuration screen still works.</p>
+    </section>
+
+    <section id="run" class="anchor-h">
+      <h2>4 · Run the app</h2>
+      <div class="code">
+        <div class="code-head"><span>bash</span><button class="copy-btn">Copy</button></div>
+<pre><code>uv run python -m dro.main</code></pre>
+      </div>
+      <p>A 1024&times;600-ish window opens on the home screen. Everything you see in the
+        <a href="screenshots.html">screenshots</a> is reachable from here.</p>
+    </section>
+
+    <section id="nixos" class="anchor-h">
+      <h2>NixOS notes</h2>
+      <p>On NixOS the manylinux wheels for SDL2/Kivy <code>dlopen</code> system libraries by soname
+        (<code>libGL.so.1</code>, <code>libmtdev.so.1</code>) that aren't on <code>LD_LIBRARY_PATH</code> by default.
+        The repo ships a <code>shell.nix</code> that wires them up:</p>
+      <div class="code">
+        <div class="code-head"><span>bash</span><button class="copy-btn">Copy</button></div>
+<pre><code><span class="cmt"># enter the dev shell (sets LD_LIBRARY_PATH), then run</span>
+nix-shell --run 'uv run python -m dro.main'
+
+<span class="cmt"># or drop into the shell first</span>
+nix-shell
+uv run python -m dro.main</code></pre>
+      </div>
+      <p class="small muted">The shell exports paths for <code>libglvnd</code> (the <code>libGL.so.1</code> GLX dispatcher),
+        <code>mtdev</code> (touch) and <code>libstdc++</code>, plus <code>/run/opengl-driver/lib</code> for the Mesa vendor driver.</p>
+    </section>
+
+    <section id="test" class="anchor-h">
+      <h2>Tests &amp; build</h2>
+      <div class="code">
+        <div class="code-head"><span>bash</span><button class="copy-btn">Copy</button></div>
+<pre><code>uv run pytest          <span class="cmt"># run the unit test suite</span>
+uv build               <span class="cmt"># build the wheel / sdist</span></code></pre>
+      </div>
+      <p class="small muted">The suite covers the protocol client, dispatchers, encoder-filter maths, profiles and the
+        firmware-update helpers — no board required (the serial layer is mocked).</p>
+    </section>
+
+    <section id="layout" class="anchor-h">
+      <h2>Project layout</h2>
+      <div class="code">
+        <div class="code-head"><span>dro/</span></div>
+<pre><code>dro/
+├── main.py            <span class="cmt"># entry point (asyncio + Kivy loop)</span>
+├── app.py             <span class="cmt"># MainApp</span>
+├── feeds.py           <span class="cmt"># feed / thread pitch tables</span>
+├── comms/             <span class="cmt"># RS-485 line-protocol driver</span>
+│   ├── protocol_client.py   <span class="cmt"># framed request/response, CRC, retries</span>
+│   ├── ymodem.py            <span class="cmt"># YMODEM sender (firmware push)</span>
+│   └── updater.py           <span class="cmt"># firmware update + bank management</span>
+├── dispatchers/       <span class="cmt"># state: board, axis, input, servo, els, formats…</span>
+├── components/        <span class="cmt"># UI: screens, home bars, popups, widgets, plot</span>
+├── help/              <span class="cmt"># contextual RST help text</span>
+└── utils/             <span class="cmt"># platform detect, kv loader, encoder filter…</span></code></pre>
+      </div>
+    </section>
+
+    <section id="standards" class="anchor-h">
+      <h2>Coding standards</h2>
+      <ul class="ticks">
+        <li><b>Python 3.10+</b> modern syntax (<code>list[X]</code>, <code>X | Y</code>).</li>
+        <li><b>Logging</b> via Kivy's logger — <code>from kivy.logger import Logger</code>.</li>
+        <li>Companion <code>.kv</code> files loaded per-module; YAML persistence via <code>SavingDispatcher</code> under <code>~/.config/drdro-software/</code>.</li>
+        <li>Branches <code>main</code> (releases) / <code>dev</code> (betas), conventional commits, semantic-release.</li>
+      </ul>
+      <div class="callout info"><div class="ci">&#128295;</div><div>
+        <p>drDRO is the successor to <a href="https://github.com/bartei/rotary-controller-python" target="_blank" rel="noopener">rotary-controller-python</a> — the same UI with the Modbus driver replaced by the RS-485 line protocol. See the <a href="reference.html">reference</a> for the protocol and architecture.</p>
+      </div></div>
+    </section>
+
+  </div>
+</div>
+</div>
+
+<footer class="footer">
+  <div class="wrap fnote">&copy; <span data-year>2026</span> drDRO project · GPL-3.0-or-later · <a href="index.html">Home</a></div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+<script src="assets/js/flash.js"></script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>drDRO — Touchscreen DRO &amp; rotary controller</title>
+  <meta name="description" content="drDRO is a Kivy touchscreen Digital Read-Out and single-axis / rotary-table controller for the drDRO STM32 board. Runs on Raspberry Pi or desktop Linux.">
+  <link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html"><img class="logo" src="assets/img/logo.svg" alt=""> dr<b>DRO</b></a>
+    <button class="nav-toggle" aria-label="Menu">&#8801;</button>
+    <div class="nav-links">
+      <a href="index.html" class="active">Overview</a>
+      <a href="features.html">Features</a>
+      <a href="screenshots.html">Screenshots</a>
+      <a href="flash.html">Get Started</a>
+      <a href="develop.html">Develop</a>
+      <a href="reference.html">Reference</a>
+      <a class="nav-cta" href="https://github.com/bartei/drdro-software-f4" target="_blank" rel="noopener">GitHub &#8599;</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Kivy touchscreen DRO &amp; controller</span>
+      <h1>Read positions. Drive the axis. <span class="amber">All from one touchscreen.</span></h1>
+      <p class="lead">
+        drDRO is a full-screen Digital Read-Out and single-axis / rotary-table controller for the
+        <strong>drDRO STM32 control board</strong>. Four scale inputs, electronic lead-screw &amp;
+        indexing, spindle sync, pattern plotting and on-device firmware updates — over a single RS-485 line.
+      </p>
+      <div class="btn-row">
+        <a class="btn btn-primary btn-lg" href="flash.html">Flash a Raspberry Pi &#8594;</a>
+        <a class="btn btn-ghost btn-lg" href="features.html">Explore the features</a>
+      </div>
+      <div class="hero-badges">
+        <span class="chip green"><span class="dot"></span> Verified on Pi 3B &amp; Pi 5</span>
+        <span class="chip amber">RS-485 line protocol</span>
+        <span class="chip">Raspberry Pi · Linux · Win · macOS</span>
+      </div>
+    </div>
+    <div class="hero-shot">
+      <img src="assets/shots/home-dro.png" alt="drDRO home screen in DRO mode showing four axis readouts" data-zoom="assets/shots/home-dro.png" data-cap="Home screen — DRO mode with the firmware-update banner">
+    </div>
+  </div>
+</header>
+
+<!-- STATS -->
+<section class="section-tight">
+  <div class="wrap">
+    <div class="stats-row">
+      <div class="stat"><div class="n">24</div><div class="l">Screens</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">Scale inputs</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">Operating modes</div></div>
+      <div class="stat"><div class="n">1</div><div class="l">RS-485 wire</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT IS IT -->
+<section class="section anchor-h" id="what">
+  <div class="wrap">
+    <div class="center" style="max-width:52rem;margin:0 auto 2.5rem">
+      <span class="eyebrow">What it is</span>
+      <h2>A complete DRO experience, purpose-built for the drDRO board</h2>
+      <p class="lead" style="margin:0 auto">
+        drDRO is the successor to <em>rotary-controller-python</em> — the same touchscreen UI, re-plumbed to
+        speak the drDRO firmware's custom RS-485 line protocol, with board-stored settings and firmware
+        updates driven over the very same bus.
+      </p>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 20h10M12 18v2"/></svg>
+        </div>
+        <h3>Live digital read-out</h3>
+        <p>Four hardware scale inputs, big amber seven-segment displays, per-axis feed-rate, metric / imperial / angle formats, and per-axis zero &amp; offset.</p>
+      </div>
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/></svg>
+        </div>
+        <h3>Motion control</h3>
+        <p>Drive the servo/stepper axis: jog, indexed moves, electronic lead-screw threading &amp; power-feed, and spindle-synchronised motion with configurable gear ratios.</p>
+      </div>
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22v-4"/><path d="M5 12a7 7 0 0 1 14 0"/><path d="M3 12h2M19 12h2"/><circle cx="12" cy="12" r="2.5"/></svg>
+        </div>
+        <h3>Firmware over the bus</h3>
+        <p>Flash the STM32 board's firmware straight from the UI over RS-485 (YMODEM), pick the boot bank, and roll back — no ST-Link, no cables to swap.</p>
+      </div>
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        </div>
+        <h3>Pattern calculators</h3>
+        <p>Circle, line and rectangular hole patterns computed and drawn on an interactive pan/zoom plot, with distance-to-go overlays.</p>
+      </div>
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l7 4v6c0 5-3 8-7 10-4-2-7-5-7-10V6z"/></svg>
+        </div>
+        <h3>Board-stored settings</h3>
+        <p>Servo speed, acceleration and calibration live in the board's flash — read on connect, saved on change. Machine profiles snapshot everything to swap setups.</p>
+      </div>
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.5 10 17l9-10"/></svg>
+        </div>
+        <h3>Appliance image</h3>
+        <p>A ready-to-flash Arch Linux ARM image boots straight to the app, full-screen, silent, touch-ready — with an in-field self-updater for both app and firmware.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><hr class="hr"></div>
+
+<!-- HOW IT FITS -->
+<section class="section anchor-h" id="stack">
+  <div class="wrap">
+    <div class="center" style="max-width:48rem;margin:0 auto 2.5rem">
+      <span class="eyebrow">The pieces</span>
+      <h2>Three repositories, one machine</h2>
+    </div>
+    <div class="grid grid-3">
+      <div class="card">
+        <span class="chip amber" style="margin-bottom:12px">drdro-software-f4</span>
+        <h4 class="mt0">This app</h4>
+        <p>The Kivy touchscreen UI. Runs on the Pi appliance, or on any desktop for development. Talks to the board over one serial port.</p>
+        <a href="features.html">See what it does &#8594;</a>
+      </div>
+      <div class="card">
+        <span class="chip blue" style="margin-bottom:12px">drdro-firmware-f4</span>
+        <h4 class="mt0">The board firmware</h4>
+        <p>STM32F411 firmware: RS-485 line protocol, dual-bank IAP bootloader, persistent flash settings. Updatable from the app.</p>
+        <a href="https://github.com/bartei/drdro-firmware-f4" target="_blank" rel="noopener">Firmware repo &#8599;</a>
+      </div>
+      <div class="card">
+        <span class="chip green" style="margin-bottom:12px">drdro-arch</span>
+        <h4 class="mt0">The SD-card image</h4>
+        <p>A purpose-built Arch Linux ARM appliance that boots straight into drDRO. One image covers the Pi 3 / 4 / 5 family.</p>
+        <a href="flash.html">Flash it &#8594;</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MODES -->
+<section class="section anchor-h" id="modes">
+  <div class="wrap">
+    <div class="center" style="max-width:48rem;margin:0 auto 2.5rem">
+      <span class="eyebrow">Operating modes</span>
+      <h2>Switch modes with a tap</h2>
+      <p class="lead" style="margin:0 auto">The mode button on the home bar cycles between the four workflows. Each reshapes the bottom control strip for the job at hand.</p>
+    </div>
+    <div class="gallery">
+      <div class="shot"><div class="thumb"><img src="assets/shots/home-index.png" alt="Index mode" data-zoom="assets/shots/home-index.png" data-cap="Index (IDX) mode — divisions & indexed moves"></div>
+        <div class="cap"><h4>Index (IDX)</h4><p>Rotary-table divisions and indexed moves.</p></div></div>
+      <div class="shot"><div class="thumb"><img src="assets/shots/home-els.png" alt="ELS mode" data-zoom="assets/shots/home-els.png" data-cap="ELS mode — electronic lead-screw threading & feed"></div>
+        <div class="cap"><h4>ELS</h4><p>Electronic lead-screw threading &amp; power-feed.</p></div></div>
+      <div class="shot"><div class="thumb"><img src="assets/shots/home-jog.png" alt="Jog mode" data-zoom="assets/shots/home-jog.png" data-cap="Jog mode — continuous jogging with speed control"></div>
+        <div class="cap"><h4>Jog</h4><p>Continuous jogging with live speed control.</p></div></div>
+      <div class="shot"><div class="thumb"><img src="assets/shots/home-dro.png" alt="DRO mode" data-zoom="assets/shots/home-dro.png" data-cap="DRO mode — pure read-out, maximum digits"></div>
+        <div class="cap"><h4>DRO</h4><p>Pure read-out — the biggest, cleanest digits.</p></div></div>
+    </div>
+    <div class="center" style="margin-top:2rem">
+      <a class="btn btn-ghost" href="screenshots.html">Browse all 24 screens &#8594;</a>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><hr class="hr"></div>
+
+<!-- COMPAT -->
+<section class="section anchor-h" id="compat">
+  <div class="wrap">
+    <div class="grid grid-2" style="align-items:center;gap:44px">
+      <div>
+        <span class="eyebrow">Tested hardware</span>
+        <h2>Runs on the Raspberry Pi you already have</h2>
+        <p>The appliance image is built from a single Arch Linux ARM rootfs that covers the whole Pi 3 / 4 / 5 family. It's been hardware-validated end-to-end on real boards.</p>
+        <ul class="ticks">
+          <li><strong>Raspberry Pi 3B</strong> — fully verified: boot, touch, hardware GL, RS-485, Wi-Fi.</li>
+          <li><strong>Raspberry Pi 5</strong> — fully verified (needs a 1024×600 USB touch panel; see notes).</li>
+          <li><strong>Raspberry Pi 4</strong> — same image family; final board sign-off pending.</li>
+        </ul>
+        <a class="btn btn-primary" href="flash.html#compat" style="margin-top:8px">Full compatibility &amp; flashing &#8594;</a>
+      </div>
+      <div class="card">
+        <div class="table-wrap" style="border:0">
+          <table>
+            <thead><tr><th>Board</th><th>Status</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>Pi 3B / 3B+</td><td><span class="tick">&#10003; Verified</span></td><td>Reference bench board</td></tr>
+              <tr><td>Pi 5</td><td><span class="tick">&#10003; Verified</span></td><td><code>usb_max_current_enable</code></td></tr>
+              <tr><td>Pi 4 / 400 / CM4</td><td><span class="warnmark">&#9679; Expected</span></td><td>Same kernel &amp; dtbs</td></tr>
+              <tr><td>Pi Zero 2 W</td><td><span class="muted">Untested</span></td><td>aarch64, may work</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section">
+  <div class="wrap">
+    <div class="cta">
+      <span class="eyebrow">Get going</span>
+      <h2>From SD card to running DRO in minutes</h2>
+      <p class="lead" style="margin:0 auto 1.6rem">Download the latest image, flash it with Raspberry Pi Imager, plug in the board, and boot.</p>
+      <div class="btn-row" style="justify-content:center">
+        <a class="btn btn-primary btn-lg" href="flash.html">Start flashing &#8594;</a>
+        <a class="btn btn-ghost btn-lg" href="develop.html">Run it on your Linux desktop</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap footer-grid">
+    <div style="max-width:22rem">
+      <a class="brand" href="index.html"><img class="logo" src="assets/img/logo.svg" alt=""> dr<b>DRO</b></a>
+      <p class="small" style="margin-top:12px">Touchscreen DRO &amp; rotary-table controller for the drDRO STM32 board. Free software, GPL-3.0.</p>
+    </div>
+    <div>
+      <h5>Documentation</h5>
+      <a href="features.html">Features</a>
+      <a href="screenshots.html">Screenshots</a>
+      <a href="flash.html">Flashing &amp; first boot</a>
+      <a href="develop.html">Local development</a>
+      <a href="reference.html">Reference</a>
+    </div>
+    <div>
+      <h5>Project</h5>
+      <a href="https://github.com/bartei/drdro-software-f4" target="_blank" rel="noopener">Software repo &#8599;</a>
+      <a href="https://github.com/bartei/drdro-firmware-f4" target="_blank" rel="noopener">Firmware repo &#8599;</a>
+      <a href="https://github.com/bartei/drdro-arch" target="_blank" rel="noopener">Appliance image &#8599;</a>
+      <a href="https://github.com/bartei/rotary-controller-python" target="_blank" rel="noopener">Predecessor (RCP) &#8599;</a>
+    </div>
+  </div>
+  <div class="wrap fnote">&copy; <span data-year>2026</span> drDRO project · Licensed GPL-3.0-or-later · Built with the drDRO amber.</div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>

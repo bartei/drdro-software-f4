@@ -1,13 +1,16 @@
 name: Deploy static content
 
-# Mock pipeline: publishes a placeholder page to this repo's own subfolder on
-# the static content host, proving out the deploy path (self-hosted runner ->
-# rsync over SSH -> nginx-static). Real content generation replaces the
-# "Build page" step later; the deploy step should not need to change.
+# Publishes the drDRO documentation site (website/) to this repo's own subfolder
+# on the static content host (self-hosted runner -> rsync over SSH -> nginx-static).
+# The "Assemble site" step stages website/ into public/; the deploy step is the
+# same mock deploy path and is intentionally left unchanged.
 
 on:
   push:
     branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/deploy-static.yml"
   workflow_dispatch: {}
 
 jobs:
@@ -17,21 +20,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build page
+      - name: Assemble site
         run: |
+          rm -rf public
           mkdir -p public
-          cat > public/index.html <<HTML
-          <!doctype html>
-          <html>
-            <head><title>${{ github.event.repository.name }}</title></head>
-            <body>
-              <h1>${{ github.event.repository.name }}</h1>
-              <p>Mock placeholder page — real content generation lands here later.</p>
-              <p>Commit: ${{ github.sha }}</p>
-              <p>Deployed: $(date -u +%Y-%m-%dT%H:%M:%SZ)</p>
-            </body>
-          </html>
-          HTML
+          # The static site lives in website/ (index.html at its root, assets/ alongside).
+          # All links are relative, so it serves correctly from any base path.
+          cp -R website/. public/
+          test -f public/index.html   # fail fast if the site is missing
 
       - name: Deploy via rsync
         env:
