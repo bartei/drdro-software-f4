@@ -52,9 +52,14 @@ class FormatsDispatcher(SavingDispatcher):
 
     position_tolerance = NumericProperty(0.05)
 
+    # Positioning aid (G2): full-scale distance at which the near-zero bar is pinned; it
+    # scales linearly from here down to `position_tolerance` (where the dot goes solid).
+    positioning_range = NumericProperty(1.0)
+
     hide_mouse_cursor = BooleanProperty(False)
 
     show_speeds = BooleanProperty(True)
+    show_positioning_aid = BooleanProperty(True)
     show_wizard = BooleanProperty(True)
 
     # The top debug ribbon is off by default (toggle it on the Stats screen).

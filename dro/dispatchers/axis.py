@@ -50,6 +50,13 @@ class AxisDispatcher(SavingDispatcher):
     speed = NumericProperty(0)
     syncEnable = BooleanProperty(False)
 
+    # Distance-to-go (G1). `target` is the nominal position in ratio-units (pre-factor,
+    # like offsets) so MM/IN toggles stay consistent; `distanceToGo` is the signed remaining
+    # distance in display-units that the positioning aid (G2) counts down to zero. Both are
+    # transient — a target is an operational value set per move, not persisted state.
+    target = NumericProperty(0)
+    distanceToGo = NumericProperty(0)
+
     _skip_save = [
         "scaledPosition",
         "formattedPosition",
@@ -58,6 +65,8 @@ class AxisDispatcher(SavingDispatcher):
         "speed_unit",
         "speed",
         "syncEnable",
+        "target",
+        "distanceToGo",
     ]
     _force_save = ["offsets"]
 
@@ -199,6 +208,15 @@ class AxisDispatcher(SavingDispatcher):
                 self.position_unit = pu
             if su != self.speed_unit:
                 self.speed_unit = su
+
+            # Distance-to-go relative to the nominal target (G1). Spindle axes have no
+            # linear target; leave their DTG at zero.
+            if self.spindleMode:
+                dtg = 0.0
+            else:
+                dtg = self.scaledPosition - self.target * float(self.formats.factor)
+            if dtg != self.distanceToGo:
+                self.distanceToGo = dtg
         except Exception as e:
             log.error(f"Error updating axis {self.axis_name}: {e}")
 
@@ -354,3 +372,25 @@ class AxisDispatcher(SavingDispatcher):
         """Restore the position saved before the last zero operation."""
         if hasattr(self, '_previous_position'):
             self.set_current_position(self._previous_position)
+
+    # ── Distance-to-go target (G1) ───────────────────────────────────
+
+    def set_target(self, value):
+        """Set the nominal target to a display-unit value.
+
+        Stored in ratio-units (pre-factor) like offsets so MM/IN toggles keep the
+        target pointing at the same physical position.
+        """
+        factor = float(self.formats.factor)
+        self.target = value / factor if factor else value
+        self._update_position()
+
+    def clear_target(self):
+        """Reset the target to zero (the aid reverts to a near-datum indicator)."""
+        self.target = 0
+        self._update_position()
+
+    def enter_target(self):
+        """Show keypad to set the nominal target (defaults to the current position)."""
+        from dro.components.popups.keypad import Keypad
+        Keypad().show_with_callback(self.set_target, self.scaledPosition)

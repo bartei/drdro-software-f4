@@ -92,12 +92,21 @@
           help_file: "position_tolerance.md"
           on_value: root.formats.position_tolerance = self.value
 
+        NumberItem:
+          name: "Positioning Aid Range (mm)"
+          value: root.formats.positioning_range
+          on_value: root.formats.positioning_range = self.value
+
         TitleItem:
           name: "Display"
         BooleanItem:
           name: "Show Speeds"
           value: root.formats.show_speeds
           on_value: root.formats.show_speeds = self.value
+        BooleanItem:
+          name: "Show Positioning Aid"
+          value: root.formats.show_positioning_aid
+          on_value: root.formats.show_positioning_aid = self.value
         BooleanItem:
           name: "Show Wizard Button"
           value: root.formats.show_wizard

@@ -1,0 +1,25 @@
+<PositioningAid>:
+    canvas:
+        # faint full-width baseline track
+        Color:
+            rgba: root.track_color
+        Rectangle:
+            pos: self.x + 6, self.center_y - 1
+            size: max(0, self.width - 12), 2
+        # offset bar: grows from just outside the dot toward the offset side
+        Color:
+            rgba: root.bar_color
+        Rectangle:
+            pos: (self.center_x + root.dot_radius, self.center_y - self.height * 0.2) if root.direction >= 0 else (self.center_x - root.dot_radius - root.bar_len, self.center_y - self.height * 0.2)
+            size: root.bar_len, self.height * 0.4
+        # target dot: hollow ring off-target, solid fill on-target
+        Color:
+            rgba: root.on_target_color if root.at_target else (0, 0, 0, 0)
+        Ellipse:
+            pos: self.center_x - root.dot_radius, self.center_y - root.dot_radius
+            size: root.dot_radius * 2, root.dot_radius * 2
+        Color:
+            rgba: root.on_target_color if root.at_target else root.dot_color
+        Line:
+            width: 1.5
+            circle: self.center_x, self.center_y, root.dot_radius

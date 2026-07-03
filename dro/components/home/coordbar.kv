@@ -1,6 +1,7 @@
 #: import Factory kivy.factory.Factory
 #: import Keypad dro.components.popups.keypad
 #: import AutoSizeButton dro.components.widgets.auto_size_button
+#: import PositioningAid dro.components.widgets.positioning_aid
 
 <CoordBar>:
   orientation: "horizontal"
@@ -20,7 +21,7 @@
       orientation: "vertical"
       BoxLayout:
         orientation: "horizontal"
-        size_hint_y: 0.7
+        size_hint_y: 0.6
         AutoSizeButton:
           background_color: (0, 0, 0, 1)
           id: pos_label
@@ -43,7 +44,7 @@
           valign: 'center'
       BoxLayout:
         orientation: "horizontal"
-        size_hint_y: 0.3 if app.formats.show_speeds else 0
+        size_hint_y: 0.2 if app.formats.show_speeds else 0
         Label:
           font_name: app.formats.font_name
           font_size: self.height / 1.5
@@ -61,6 +62,15 @@
           color: app.formats.display_color
           text: root.axis.speed_unit if root.axis else ""
           valign: 'top'
+      PositioningAid:
+        size_hint_y: 0.2 if (app.formats.show_positioning_aid and root.axis and not root.axis.spindleMode) else 0
+        axis: root.axis
+        value: root.axis.distanceToGo if root.axis else 0
+        tolerance: app.formats.position_tolerance
+        span: app.formats.positioning_range
+        bar_color: app.formats.display_color
+        dot_color: app.formats.display_color
+        on_target_color: app.formats.accept_color
 
     BoxLayout:
       size_hint_x: None
