@@ -33,7 +33,7 @@ class PositioningAid(Widget):
     span = NumericProperty(1.0)         # full-scale distance for the bar, display units
 
     bar_color = ColorProperty([1.0, 0.8, 0.2, 1])
-    on_target_color = ColorProperty([0.2, 1.0, 0.2, 1])
+    at_target_color = ColorProperty([0.2, 1.0, 0.2, 1])
     dot_color = ColorProperty([1.0, 0.8, 0.2, 1])
     track_color = ColorProperty([0.3, 0.3, 0.3, 1])
 

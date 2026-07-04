@@ -14,12 +14,12 @@
             size: root.bar_len, self.height * 0.4
         # target dot: hollow ring off-target, solid fill on-target
         Color:
-            rgba: root.on_target_color if root.at_target else (0, 0, 0, 0)
+            rgba: root.at_target_color if root.at_target else (0, 0, 0, 0)
         Ellipse:
             pos: self.center_x - root.dot_radius, self.center_y - root.dot_radius
             size: root.dot_radius * 2, root.dot_radius * 2
         Color:
-            rgba: root.on_target_color if root.at_target else root.dot_color
+            rgba: root.at_target_color if root.at_target else root.dot_color
         Line:
             width: 1.5
             circle: self.center_x, self.center_y, root.dot_radius
