@@ -8,9 +8,9 @@ from types import SimpleNamespace
 from dro.components.widgets.positioning_aid import PositioningAid
 
 
-def _aid(value, span=1.0, tol=0.05, w=200, h=40):
+def _aid(value, span=1.0, tol=0.05, w=200, h=40, active=True):
     """Run the real getters against a stand-in and return the resolved geometry."""
-    s = SimpleNamespace(value=value, span=span, tolerance=tol, width=w, height=h)
+    s = SimpleNamespace(value=value, span=span, tolerance=tol, width=w, height=h, active=active)
     s.dot_radius = PositioningAid._get_dot_radius(s)
     s.at_target = PositioningAid._get_at_target(s)
     s.fraction = PositioningAid._get_fraction(s)
@@ -30,6 +30,11 @@ def test_tolerance_boundary_is_on_target():
     # exactly at the tolerance still counts as spot-on (dot solid)
     assert _aid(0.05).at_target
     assert not _aid(0.0500001).at_target
+
+
+def test_inactive_is_never_on_target():
+    # With no nominal armed the aid stays quiet, even sitting right at zero.
+    assert not _aid(0.0, active=False).at_target
 
 
 def test_offset_side_matches_sign():
