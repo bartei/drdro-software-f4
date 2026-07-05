@@ -1,9 +1,12 @@
-Position Tolerance (mm)
-=======================
+Plot Position Tolerance (mm)
+============================
 
-The acceptable position error threshold, in millimeters. When the
-current position is within this distance of a target, the DRO
-considers the axis to be "at position."
+The acceptable position error threshold used by the Plot view, in
+millimeters. When the current position is within this distance of a
+plotted target, the plot marks the point as reached.
+
+The positioning aid under each axis readout uses its own per-axis
+In-Position Tolerance instead — see the Axis settings screen.
 
 How It Works
 ------------

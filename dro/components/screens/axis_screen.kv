@@ -31,6 +31,16 @@
           value: root.axis.spindleMode if root.axis else False
           help_file: "spindle_mode.md"
           on_value: root.axis.spindleMode = self.value
+        NumberItem:
+          # Edited in the current display unit (stored in mm); hidden for spindle axes,
+          # which have no linear in-position window.
+          name: "In-Position Tolerance ({})".format(root.axis.position_unit if (root.axis and root.axis.position_unit) else "mm")
+          value: round(float(root.axis.position_tolerance * app.formats.factor), 6) if root.axis else 0.05
+          help_file: "axis_position_tolerance.md"
+          on_value: root.axis.position_tolerance = float(self.value / app.formats.factor)
+          height: 0 if (root.axis.spindleMode if root.axis else False) else 60
+          opacity: 0 if (root.axis.spindleMode if root.axis else False) else 1
+          disabled: root.axis.spindleMode if root.axis else False
 
         TitleItem:
           name: "Sync Ratio"

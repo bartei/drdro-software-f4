@@ -38,6 +38,10 @@ class AxisDispatcher(SavingDispatcher):
     syncRatioNum = NumericProperty(360)
     syncRatioDen = NumericProperty(100)
     spindleMode = BooleanProperty(False)
+    # In-position window for the positioning aid, stored in mm (pre-factor, like offsets)
+    # so MM/IN display toggles keep the same physical window. Edited on the Axis screen in
+    # the current display unit; not meaningful (and hidden) in spindle mode.
+    position_tolerance = NumericProperty(0.05)
     abs_offset = NumericProperty(0)
     offsets = ListProperty([0 for _ in range(100)])
 

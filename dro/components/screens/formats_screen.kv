@@ -87,7 +87,9 @@
           on_font_path: app.formats.font_name = self.font_path
 
         NumberItem:
-          name: "Position Tolerance (mm)"
+          # Plot view only — the coordbar positioning aid uses the per-axis
+          # In-Position Tolerance on each Axis screen.
+          name: "Plot Position Tolerance (mm)"
           value: root.formats.position_tolerance
           help_file: "position_tolerance.md"
           on_value: root.formats.position_tolerance = self.value
