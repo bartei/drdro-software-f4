@@ -65,12 +65,21 @@ class MainApp(App):
 
     def __init__(self, **kv):
         super().__init__(**kv)
-
+        # Lazy-loaded by beep(): None = not tried yet, False = unavailable (logged once).
+        self.sound = None
 
     def beep(self, *args, **kv):
-        pass
-        # self.sound.volume = self.formats.volume
-        # self.sound.play()
+        if self.sound is False:
+            return
+        if self.sound is None:
+            from kivy.core.audio import SoundLoader
+            from kivy.resources import resource_find
+            self.sound = SoundLoader.load(resource_find("sounds/beep.mp3")) or False
+            if self.sound is False:
+                log.error("beep: no audio provider could load sounds/beep.mp3")
+                return
+        self.sound.volume = self.formats.volume
+        self.sound.play()
 
     @staticmethod
     def load_help(help_file_name):
@@ -117,8 +126,6 @@ class MainApp(App):
         self.axes = list(self.board.axes)
 
         self.els = ElsDispatcher(id_override="0")
-
-        self.beep()
 
         import importlib.metadata
         self.version = "v" + importlib.metadata.version("drdro-software")

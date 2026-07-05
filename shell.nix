@@ -21,6 +21,12 @@ pkgs.mkShell {
       pkgs.libglvnd          # libGL.so.1 — GLX dispatcher (loads the mesa vendor below)
       pkgs.mtdev             # libmtdev.so.1 — multitouch input provider
       pkgs.stdenv.cc.cc.lib  # libstdc++ — native deps (e.g. greenlet)
+      pkgs.alsa-lib          # libasound.so.2 — SDL audio (ALSA routes to pipewire via
+                             # /etc/alsa/conf.d; matches the Pi image, which is ALSA-only)
     ]}:/run/opengl-driver/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    # The Kivy wheel's bundled SDL2 deadlocks on its pulseaudio driver inside windowed apps
+    # (main thread parks on a futex against the PulseMainloop thread; no pipewire driver is
+    # compiled into the wheel). ALSA→pipewire works — pin it.
+    export SDL_AUDIODRIVER=alsa
   '';
 }
