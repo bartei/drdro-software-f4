@@ -45,7 +45,10 @@ testpaths = ["tests"]
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 hvcs = "github"
-build_command = "uv build"
+# After semantic-release stamps the new version into pyproject, refresh uv.lock so its
+# self-version tracks the release, then build; `assets` includes uv.lock in the release commit.
+build_command = "uv lock && uv build"
+assets = ["uv.lock"]
 
 [tool.semantic_release.branches.main]
 match = "main"

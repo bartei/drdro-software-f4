@@ -1,8 +1,8 @@
 name: CI
 
+# Pull-request feedback only. Pushes to dev/main run the Release workflow, whose `test` job
+# gates the release — so branch pushes no longer run CI and Release redundantly.
 on:
-  push:
-    branches: [main, dev]
   pull_request:
 
 jobs:
