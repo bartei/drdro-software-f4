@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.5.0 (2026-07-05)
+
+### Bug Fixes
+
+- Make beep() actually play — audio was a stub since the port
+  ([`b0dd210`](https://github.com/bartei/drdro-software-f4/commit/b0dd21050ac32b1413c793c03c5fea90138ec320))
+
+- Rename PositioningAid on_target_color property — the on_ prefix is Kivy handler syntax
+  ([`b3b95ed`](https://github.com/bartei/drdro-software-f4/commit/b3b95edfc26c96cd76711a8ab885af56c498fe8c))
+
+### Features
+
+- Finalize the distance-to-go positioning aid (PT 855 G1/G2)
+  ([`ef6610e`](https://github.com/bartei/drdro-software-f4/commit/ef6610e7b1d5e104bf84c18615b15ad175c23a82))
+
+- Per-axis in-position tolerance for the positioning aid
+  ([`af779f8`](https://github.com/bartei/drdro-software-f4/commit/af779f8afe6e2382218492969b5d9bf51426fe1a))
+
+
 ## v1.5.0-beta.1 (2026-07-03)
 
 ### Chores
