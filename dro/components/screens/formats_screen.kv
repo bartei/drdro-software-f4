@@ -110,6 +110,11 @@
           value: root.formats.show_positioning_aid
           on_value: root.formats.show_positioning_aid = self.value
         BooleanItem:
+          name: "Approach Beeper"
+          value: root.formats.beep_on_approach
+          help_file: "beep_on_approach.md"
+          on_value: root.formats.beep_on_approach = self.value
+        BooleanItem:
           name: "Show Wizard Button"
           value: root.formats.show_wizard
           on_value: root.formats.show_wizard = self.value

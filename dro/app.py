@@ -65,21 +65,12 @@ class MainApp(App):
 
     def __init__(self, **kv):
         super().__init__(**kv)
-        # Lazy-loaded by beep(): None = not tried yet, False = unavailable (logged once).
-        self.sound = None
+        self.beeper = None  # ApproachBeeper, created in build() once axes exist
 
     def beep(self, *args, **kv):
-        if self.sound is False:
-            return
-        if self.sound is None:
-            from kivy.core.audio import SoundLoader
-            from kivy.resources import resource_find
-            self.sound = SoundLoader.load(resource_find("sounds/beep.mp3")) or False
-            if self.sound is False:
-                log.error("beep: no audio provider could load sounds/beep.mp3")
-                return
-        self.sound.volume = self.formats.volume
-        self.sound.play()
+        # Short synthesized UI click (no audio asset; see dro.utils.tone).
+        from dro.utils import tone
+        tone.play_tone(880, 40, self.formats.volume)
 
     @staticmethod
     def load_help(help_file_name):
@@ -138,6 +129,11 @@ class MainApp(App):
 
         # Start the RS-485 poll loop on the running asyncio loop (we run under async_run).
         self.board.start()
+
+        # Approach beeper: audible half of the positioning aid (G2), driven off the axes' DTG.
+        from dro.utils.beeper import ApproachBeeper
+        self.beeper = ApproachBeeper(self)
+        self.beeper.start()
 
         return self.manager
 

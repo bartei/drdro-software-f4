@@ -60,6 +60,8 @@ class FormatsDispatcher(SavingDispatcher):
 
     show_speeds = BooleanProperty(True)
     show_positioning_aid = BooleanProperty(True)
+    # Audible approach cue (G2): faster + higher beeps as an armed axis nears its target.
+    beep_on_approach = BooleanProperty(True)
     show_wizard = BooleanProperty(True)
 
     # The top debug ribbon is off by default (toggle it on the Stats screen).
