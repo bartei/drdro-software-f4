@@ -50,8 +50,10 @@
         disabled: not self.opacity
         active: root.axis.target_active if root.axis else False
         axis: root.axis
-        value: root.axis.distanceToGo if root.axis else 0
-        tolerance: (root.axis.position_tolerance * app.formats.factor) if root.axis else 0.05
+        # Aid math runs in mm so the physical scale is unit-independent: distanceToGo is in
+        # display units, divide by factor back to mm; tolerance + range are stored in mm.
+        value: (root.axis.distanceToGo / float(app.formats.factor)) if root.axis else 0
+        tolerance: root.axis.position_tolerance if root.axis else 0.05
         span: app.formats.positioning_range
         bar_color: app.formats.display_color
         dot_color: app.formats.display_color
