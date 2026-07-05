@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.6.0 (2026-07-05)
+
+### Bug Fixes
+
+- Positioning aid scale is now unit-independent
+  ([`ab39232`](https://github.com/bartei/drdro-software-f4/commit/ab39232f615e343be16c282253cf879ba0ced978))
+
+### Features
+
+- Synthesized approach beeper (PT 855 G2 audible cue)
+  ([`41d2e6b`](https://github.com/bartei/drdro-software-f4/commit/41d2e6b84c7c123d4412befcce8b689040334261))
+
+
 ## v1.5.0 (2026-07-05)
 
 ### Bug Fixes
