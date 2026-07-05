@@ -11,6 +11,7 @@ tap/long-press affordance to set/clear the axis target.
 from kivy.clock import Clock
 from kivy.properties import (
     AliasProperty,
+    BooleanProperty,
     ColorProperty,
     NumericProperty,
     ObjectProperty,
@@ -31,6 +32,7 @@ class PositioningAid(Widget):
     value = NumericProperty(0.0)        # signed distance-to-go, display units
     tolerance = NumericProperty(0.05)   # on-target threshold, display units
     span = NumericProperty(1.0)         # full-scale distance for the bar, display units
+    active = BooleanProperty(False)     # a target is armed; idle aids stay quiet
 
     bar_color = ColorProperty([1.0, 0.8, 0.2, 1])
     at_target_color = ColorProperty([0.2, 1.0, 0.2, 1])
@@ -43,9 +45,9 @@ class PositioningAid(Widget):
 
     # ── Derived geometry (drive the KV canvas) ───────────────────────
     def _get_at_target(self):
-        return abs(self.value) <= self.tolerance
+        return self.active and abs(self.value) <= self.tolerance
 
-    at_target = AliasProperty(_get_at_target, None, bind=("value", "tolerance"))
+    at_target = AliasProperty(_get_at_target, None, bind=("value", "tolerance", "active"))
 
     def _get_fraction(self):
         if self.span <= 0:

@@ -12,7 +12,8 @@
         Rectangle:
             pos: (self.center_x + root.dot_radius, self.center_y - self.height * 0.2) if root.direction >= 0 else (self.center_x - root.dot_radius - root.bar_len, self.center_y - self.height * 0.2)
             size: root.bar_len, self.height * 0.4
-        # target dot: hollow ring off-target, solid fill on-target
+        # target dot: hollow ring always marks the datum (and taps set the target);
+        # the ring fills solid on-target, which only happens while a target is armed.
         Color:
             rgba: root.at_target_color if root.at_target else (0, 0, 0, 0)
         Ellipse:

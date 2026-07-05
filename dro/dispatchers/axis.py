@@ -54,11 +54,14 @@ class AxisDispatcher(SavingDispatcher):
     speed = NumericProperty(0)
     syncEnable = BooleanProperty(False)
 
-    # Distance-to-go (G1). `target` is the nominal position in ratio-units (pre-factor,
-    # like offsets) so MM/IN toggles stay consistent; `distanceToGo` is the signed remaining
-    # distance in display-units that the positioning aid (G2) counts down to zero. Both are
-    # transient — a target is an operational value set per move, not persisted state.
+    # Distance-to-go (G1, PT 855 p.29). `target` is the nominal position in ratio-units
+    # (pre-factor, like offsets) so MM/IN toggles stay consistent; `distanceToGo` is the
+    # signed remaining distance in display-units that the positioning aid (G2) counts down
+    # to zero. All three are transient — a nominal is an operational value set per move, not
+    # persisted state. `target_active` = a nominal is armed (PT DTG mode engaged for this
+    # axis); when false the axis is a plain DRO and the aid stays quiet.
     target = NumericProperty(0)
+    target_active = BooleanProperty(False)
     distanceToGo = NumericProperty(0)
 
     _skip_save = [
@@ -70,6 +73,7 @@ class AxisDispatcher(SavingDispatcher):
         "speed",
         "syncEnable",
         "target",
+        "target_active",
         "distanceToGo",
     ]
     _force_save = ["offsets"]
@@ -214,8 +218,8 @@ class AxisDispatcher(SavingDispatcher):
                 self.speed_unit = su
 
             # Distance-to-go relative to the nominal target (G1). Spindle axes have no
-            # linear target; leave their DTG at zero.
-            if self.spindleMode:
+            # linear target, and an axis with no nominal armed has no DTG.
+            if self.spindleMode or not self.target_active:
                 dtg = 0.0
             else:
                 dtg = self.scaledPosition - self.target * float(self.formats.factor)
@@ -387,11 +391,13 @@ class AxisDispatcher(SavingDispatcher):
         """
         factor = float(self.formats.factor)
         self.target = value / factor if factor else value
+        self.target_active = True
         self._update_position()
 
     def clear_target(self):
-        """Reset the target to zero (the aid reverts to a near-datum indicator)."""
+        """Disarm the nominal — the axis goes back to a plain DRO (aid quiet)."""
         self.target = 0
+        self.target_active = False
         self._update_position()
 
     def enter_target(self):
