@@ -18,6 +18,11 @@ ICON_STOP = "\uf04d"  # stop
 MAX_ROW_HEIGHT = 150
 LONG_PRESS_THRESHOLD = 1.0
 
+# Above this |speed| (RPM) the spindle spins too fast for the angular position to be
+# readable, so hide it (the RPM readout stays). Tunable.
+POSITION_HIDE_RPM = 30.0
+POSITION_HIDDEN = "—"  # em dash shown in place of the degrees while spinning fast
+
 
 class ElsSpindleInfo(BoxLayout):
     """Displays spindle speed with direction icon and absolute position with zero button."""
@@ -47,7 +52,10 @@ class ElsSpindleInfo(BoxLayout):
         if rpm != self.spindle_rpm:
             self.spindle_rpm = rpm
 
-        pos = self.app.formats.position_format.format(axis.scaledPosition) + "\u00b0"
+        if abs(axis.speed) > POSITION_HIDE_RPM:
+            pos = POSITION_HIDDEN
+        else:
+            pos = self.app.formats.position_format.format(axis.scaledPosition) + "\u00b0"
         if pos != self.spindle_position:
             self.spindle_position = pos
 
