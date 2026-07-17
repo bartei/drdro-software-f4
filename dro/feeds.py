@@ -102,3 +102,27 @@ table = {
     "Feed IN": FEED_IN,
     "Feed MM": FEED_MM,
 }
+
+
+def custom_feed(table_name: str, value: float) -> FeedConfiguration:
+    """Build a one-off FeedConfiguration from a user-entered value, interpreted in the
+    active tab's native unit. `ratio` is the leadscrew advance (mm) per spindle revolution,
+    exactly like the preconfigured tables, so it applies through the same path.
+
+    Thread MM → pitch in mm; Thread IN → threads per inch; Feed MM/IN → feed per rev.
+    """
+    v = Fraction(str(value))
+    if v <= 0:
+        raise ValueError(f"Feed value must be positive, got {value}")
+
+    if table_name in ("Thread MM", "Feed MM"):   # mm per rev
+        ratio = v
+    elif table_name == "Thread IN":              # threads per inch → 25.4/TPI mm per rev
+        ratio = Fraction(254, 10) / v
+    elif table_name == "Feed IN":                # inch per rev → 25.4*value mm per rev
+        ratio = Fraction(254, 10) * v
+    else:
+        raise ValueError(f"Unknown feed table: {table_name}")
+
+    mode = table[table_name][0].mode if table.get(table_name) else None
+    return FeedConfiguration(name=f"{value:g}", ratio=ratio, mode=mode)

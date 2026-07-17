@@ -81,7 +81,7 @@
       text_size: self.size
       halign: 'center'
       valign: 'middle'
-      on_release: Factory.FeedsTablePopup().show_with_callback(root.set_feed_ratio)
+      on_release: Factory.FeedsTablePopup().show_with_callback(root.set_feed_ratio, custom_fn=root.set_custom_feed)
 
   Button:
     width: self.height

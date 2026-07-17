@@ -69,6 +69,27 @@ class ElsBar(BoxLayout, SavingDispatcher):
         self.current_feeds_table = table_instance
         self.current_feeds_index = index
 
+    def set_custom_feed(self, table_name, feed_config):
+        """Apply a user-entered arbitrary feed ratio that isn't in the configured tables.
+
+        Bypasses the table[index] lookup: the ratio/name come straight from feed_config.
+        `feed_config.ratio` is leadscrew mm per spindle revolution, applied to the spindle
+        the same way update_feeds_ratio does for a table pick.
+        """
+        self.mode_name = table_name
+        self.current_feeds_table = feeds.table[table_name]
+        # Keep the index valid for the (possibly shorter) selected table so a later
+        # next/previous_feed can't index out of range.
+        if self.current_feeds_index >= len(self.current_feeds_table):
+            self.current_feeds_index = len(self.current_feeds_table) - 1
+        spindle_axis = self.app.board.get_spindle_axis()
+        if spindle_axis is not None:
+            spindle_axis.syncRatioNum = feed_config.ratio.numerator
+            spindle_axis.syncRatioDen = feed_config.ratio.denominator
+        self.feed_name = feed_config.name
+        log.info(f"Custom feed {table_name}: {feed_config.name} -> "
+                 f"{feed_config.ratio.numerator}/{feed_config.ratio.denominator}")
+
     def update_feeds_ratio(self, instance, value):
         ratio = self.current_feeds_table[self.current_feeds_index].ratio
         spindle_axis = self.app.board.get_spindle_axis()
