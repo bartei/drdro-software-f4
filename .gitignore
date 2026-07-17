@@ -37,3 +37,7 @@ coverage.xml
 
 # OS
 .DS_Store
+
+# Local runtime config: machine-specific serial_port + Kivy-written UI state
+# (current_mode). The app regenerates it from defaults (see dro/app.py) if missing.
+config.ini
