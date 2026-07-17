@@ -2,6 +2,35 @@
 
 <!-- version list -->
 
+## v1.7.0 (2026-07-17)
+
+### Bug Fixes
+
+- **els**: Arm spindle sync when enabling the servo on the ELS page
+  ([`7dd9278`](https://github.com/bartei/drdro-software-f4/commit/7dd9278e05b81b693dab0c7471472319611075b1))
+
+### Continuous Integration
+
+- Gate releases on tests, auto-update uv.lock, drop duplicate runs
+  ([`e08da79`](https://github.com/bartei/drdro-software-f4/commit/e08da7908dbafdbf999afb97603e1936d1904823))
+
+### Features
+
+- **els**: Custom feed entry for arbitrary pitch/TPI ratios
+  ([`0d762f1`](https://github.com/bartei/drdro-software-f4/commit/0d762f16f7857d6cd2d7b71fbf811461f5ecfd77))
+
+- **els**: Hide spindle angular position above 30 RPM
+  ([`04400a7`](https://github.com/bartei/drdro-software-f4/commit/04400a7a8b05afdb7d1d1ca3111d8fa9d90af0e4))
+
+### Testing
+
+- Fix PositioningAid tests for the armed/active state
+  ([`faceb62`](https://github.com/bartei/drdro-software-f4/commit/faceb62d61e07ce2d161d55537de22fd544874fa))
+
+- Keep ELS widget imports headless-safe (fix release CI)
+  ([`53a99ef`](https://github.com/bartei/drdro-software-f4/commit/53a99ef18aea6bd15c8446ad8b171c2467061617))
+
+
 ## v1.6.0 (2026-07-05)
 
 ### Bug Fixes
