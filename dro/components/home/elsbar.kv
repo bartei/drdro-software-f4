@@ -16,7 +16,7 @@
     font_size: self.height / 1.5
     font_style: "bold"
     background_color: [0.2, 1, 0.2, 1] if app.servo.servoEnable else [0.3, 0.3, 0.3, 1]
-    on_release: app.servo.toggle_enable()
+    on_release: root.toggle_servo()
 
   BoxLayout:
     orientation: "vertical"

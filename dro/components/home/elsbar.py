@@ -46,6 +46,23 @@ class ElsBar(BoxLayout, SavingDispatcher):
     def update_current_position(self):
         Factory.Keypad().show_with_callback(self.app.servo.set_current_position, self.app.servo.scaledPosition)
 
+    def toggle_servo(self):
+        """Enable/disable the servo output and the spindle sync together.
+
+        In ELS the servo runs in sync mode (servo.mode 1 = sync+index) and follows the
+        spindle encoder — but only if the spindle input has sync enabled. The ELS page has
+        no sync control of its own, so tie it to the enable button: turning the servo on
+        also arms the spindle as the sync source (and turning it off disarms it). This makes
+        ELS work from this page alone, without first enabling the spindle from the Jog/DRO page.
+        """
+        self.app.servo.toggle_enable()
+        spindle_axis = self.app.board.get_spindle_axis()
+        if spindle_axis is None:
+            return
+        want_sync = self.app.servo.servoEnable != 0
+        if bool(spindle_axis.syncEnable) != want_sync:
+            spindle_axis.toggle_sync()
+
     def set_feed_ratio(self, table_name, index):
         table_instance = feeds.table[table_name]
         self.mode_name = table_name
