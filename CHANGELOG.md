@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.7.1-beta.1 (2026-07-25)
+
+### Bug Fixes
+
+- **network**: Degrade gracefully when NetworkManager is absent
+  ([`45a9474`](https://github.com/bartei/drdro-software-f4/commit/45a9474c44084fbb3bea4064771f1e6a1c16ea0b))
+
+### Chores
+
+- Stop tracking config.ini (machine-local runtime config)
+  ([`ca4463a`](https://github.com/bartei/drdro-software-f4/commit/ca4463a9ccc9aea03a3487119ff69c747c609553))
+
+- **deps**: Upgrade locked dependencies
+  ([`cafd067`](https://github.com/bartei/drdro-software-f4/commit/cafd067d57bb701c9919cd91e63f65838b150a06))
+
+
 ## v1.7.0 (2026-07-17)
 
 ### Bug Fixes
