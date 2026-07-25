@@ -28,6 +28,7 @@
         BooleanItem:
           name: "Enable Wifi"
           value: root.wifi_enabled
+          disabled: not root.nm_available
           help_file: "enable_wifi.md"
           on_value: root.wifi_enabled = self.value
         DropDownItem:

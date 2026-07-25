@@ -10,6 +10,7 @@ from kivy.uix.modalview import ModalView
 from kivy.uix.button import Button
 
 from dro.utils.kv_loader import load_kv
+from dro.utils.platform import network_manager_available
 
 nmcli.disable_use_sudo()
 
@@ -46,6 +47,11 @@ class SsidPopup(ModalView):
     async def wifi_rescan(self, *args, **kv):
         self.scanning = True
         try:
+            if not network_manager_available():
+                log.info("NetworkManager is unavailable, skipping the access point scan")
+                self.container.clear_widgets()
+                return
+
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, nmcli.device.wifi_rescan)
             found_networks = await loop.run_in_executor(None, nmcli.device.wifi)
