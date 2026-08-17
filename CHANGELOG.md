@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.8.0-beta.1 (2026-08-17)
+
+### Chores
+
+- Drop RESUME.md
+  ([`c6fc53d`](https://github.com/bartei/drdro-software-f4/commit/c6fc53d9cad17e605ce4ed60530e1ef98a0abb95))
+
+### Features
+
+- **els**: Select left- or right-hand thread direction
+  ([`fa8c4a9`](https://github.com/bartei/drdro-software-f4/commit/fa8c4a9a213ab0a0bfc7faed9d90ee5658242905))
+
+
 ## v1.7.1-beta.1 (2026-07-25)
 
 ### Bug Fixes
