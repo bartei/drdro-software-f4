@@ -17,21 +17,54 @@
     background_color: [0.2, 1, 0.2, 1] if app.servo.servoEnable else [0.3, 0.3, 0.3, 1]
     on_release: root.toggle_servo()
 
+  # Thread hand / feed direction. Same width as the other controls for a consistent touch
+  # target. Locked out while the servo runs: flipping it mid-cut would reverse the carriage
+  # into the work.
+  BoxLayout:
+    width: self.height
+    size_hint_x: None
+    orientation: 'vertical'
+    Label:
+      text: "Hand"
+      font_size: self.height / 1.5
+      size_hint_y: 0.3
+      color: app.formats.display_color
+      halign: 'center'
+      valign: 'top'
+    Button:
+      size_hint_y: 0.7
+      font_name: app.formats.font_name
+      font_size: self.height / 2
+      font_style: "bold"
+      background_color: [0.3, 0.3, 0.3, 1]
+      color: app.formats.display_color
+      text: "LH" if root.feed_direction < 0 else "RH"
+      text_size: self.size
+      halign: 'center'
+      valign: 'middle'
+      disabled: app.servo.servoEnable != 0
+      on_release: root.toggle_feed_direction()
+
   BoxLayout:
     orientation: "vertical"
     size_hint_x: 0.8
+    # Row heights sum to 1.0 so Kivy doesn't renormalise them: the caption then gets the
+    # same 0.3 share as the mode/hand captions and lines up with them across the bar.
     Label:
       text: "Current"
       text_size: self.size
-      size_hint_y: 0.15
-      font_size: 16
+      size_hint_y: 0.3
+      font_size: self.height / 1.5
       color: app.formats.display_color
       halign: 'center'
       valign: 'top'
     AutoSizeButton:
-      size_hint_y: 0.30
+      size_hint_y: 0.5
       font_name: app.formats.font_name
-      max_font_size: self.height / 2
+      # Matches the feed/hand value buttons, which work out to (0.7 * bar) / 2. Expressed
+      # against the bar rather than self.height because this row is shorter — it gives up
+      # space to the speed bar below. AutoSizeButton still shrinks it if the text is wide.
+      max_font_size: root.height * 0.35
       font_style: "bold"
       background_color: [0.2, 0.2, 0.2, 1]
       color: app.formats.display_color
@@ -92,3 +125,4 @@
     font_style: "bold"
     halign: "center"
     on_release: root.next_feed()
+
