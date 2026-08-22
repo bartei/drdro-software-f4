@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.7.2 (2026-08-22)
+
+### Bug Fixes
+
+- **update**: Preserve config.ini across release checkout
+  ([`a9f91f8`](https://github.com/bartei/drdro-software-f4/commit/a9f91f83d09170f426a50617418bfe069e3a26db))
+
+
 ## v1.7.1 (2026-08-22)
 
 ### Bug Fixes
