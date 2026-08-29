@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 
 import nmcli
 
@@ -14,6 +15,13 @@ nmcli.disable_use_sudo()
 
 log = Logger.getChild(__name__)
 load_kv(__file__)
+
+# NetworkManager's `nmcli` is Linux-only. On platforms without it (Windows, macOS
+# dev boxes) every nmcli call raises FileNotFoundError; detect it once and let the
+# Network screen degrade gracefully instead of crashing the whole app at startup.
+NMCLI_AVAILABLE = shutil.which("nmcli") is not None
+if not NMCLI_AVAILABLE:
+    log.warning("nmcli not found on PATH — Network screen disabled (Linux-only feature)")
 
 
 class NetworkScreen(Screen):
@@ -40,6 +48,12 @@ class NetworkScreen(Screen):
     def __init__(self, **kv):
         super().__init__(**kv)
         self.ids['grid_layout'].bind(minimum_height=self.ids['grid_layout'].setter('height'))
+
+        if not NMCLI_AVAILABLE:
+            self.status_text = "Network management unavailable on this platform (nmcli not found)."
+            self.status_update_task = None
+            return
+
         self.wifi_enabled = nmcli.radio().wifi
 
         Clock.schedule_once(lambda dt: asyncio.ensure_future(self.refresh()))
@@ -131,6 +145,8 @@ class NetworkScreen(Screen):
                 self.log(f"Unable to connect: {str(e)}")
 
     def on_wifi_enabled(self, instance, value):
+        if not NMCLI_AVAILABLE:
+            return
         if self.wifi_enabled:
             self.log("Enable Wifi Connections")
             nmcli.radio.wifi_on()
@@ -149,4 +165,5 @@ class NetworkScreen(Screen):
 
     def on_dismiss(self):
         log.debug("Dismiss signal received, stopping status_update_task")
-        self.status_update_task.cancel()
+        if self.status_update_task is not None:
+            self.status_update_task.cancel()
