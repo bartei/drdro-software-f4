@@ -30,6 +30,8 @@ RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
 # and overlay/opt/drdro/app-run.sh — the app runs as root from this folder).
 PROJECT_FOLDER = "/opt/drdro/app"
 VENV_PIP = f"{PROJECT_FOLDER}/.venv/bin/pip"
+# Machine-local config preserved across the forced checkout in perform_install.
+CONFIG_BACKUP = "/tmp/drdro-config.ini.bak"
 
 # Verify TLS against certifi's CA bundle — same rationale as dro/comms/updater.py
 # (system CA store is unreliable on some hosts).
@@ -155,19 +157,28 @@ class UpdateScreen(Screen):
 
         # Install with the app's own venv pip (app-run.sh activates it, but be explicit).
         pip = VENV_PIP if os.path.exists(VENV_PIP) else "pip"
+        # config.ini is machine-local (serial_port + Kivy-written UI state) and constantly
+        # dirty; on checkouts crossing the commit that untracked it, git refuses or deletes
+        # it. Preserve it around a forced checkout instead of asking git to merge it.
+        backup = f"cp -f config.ini {CONFIG_BACKUP} 2>/dev/null || true"
+        restore = f"cp -f {CONFIG_BACKUP} config.ini 2>/dev/null || true"
         if self.selected_release == DEV_RELEASE:
             commands = [
+                backup,
                 "git remote set-branches origin '*'",
                 "git fetch --all",
-                "git checkout dev",
-                "git pull origin dev",
+                "git checkout -f dev",
+                "git reset --hard origin/dev",
+                restore,
                 f"{pip} install .",
                 "reboot",
             ]
         else:
             commands = [
+                backup,
                 "git fetch --all --tags",
-                f"git checkout tags/{self.selected_release}",
+                f"git checkout -f tags/{self.selected_release}",
+                restore,
                 f"{pip} install .",
                 "reboot",
             ]

@@ -71,24 +71,42 @@ class Response:
         return self.crc_ok and self.error is None
 
     # ── typed accessors ──────────────────────────────────────────────
+    # A garbled value (line noise that slipped past the CRC, or read off a crc_ok=False
+    # frame) yields None/[] rather than raising, so a bad message can never crash a caller.
     def text(self, key: str) -> str | None:
         return self.values.get(key)
 
     def as_int(self, key: str) -> int | None:
         v = self.values.get(key)
-        return int(v) if v is not None else None
+        try:
+            return int(v) if v is not None else None
+        except ValueError:
+            log.warning("Malformed int for %r: %r", key, v)
+            return None
 
     def as_float(self, key: str) -> float | None:
         v = self.values.get(key)
-        return float(v) if v is not None else None
+        try:
+            return float(v) if v is not None else None
+        except ValueError:
+            log.warning("Malformed float for %r: %r", key, v)
+            return None
 
     def as_ints(self, key: str) -> list[int]:
         v = self.values.get(key)
-        return [int(x) for x in v.split(",")] if v else []
+        try:
+            return [int(x) for x in v.split(",")] if v else []
+        except ValueError:
+            log.warning("Malformed int array for %r: %r", key, v)
+            return []
 
     def as_floats(self, key: str) -> list[float]:
         v = self.values.get(key)
-        return [float(x) for x in v.split(",")] if v else []
+        try:
+            return [float(x) for x in v.split(",")] if v else []
+        except ValueError:
+            log.warning("Malformed float array for %r: %r", key, v)
+            return []
 
 
 def parse_response(lines: list[str]) -> Response:
@@ -103,7 +121,12 @@ def parse_response(lines: list[str]) -> Response:
         want = int(lines[-1].split("=", 1)[1], 16)
     except ValueError:
         want = -1
-    crc_ok = want == xor8(body.encode("ascii"))
+    try:
+        crc_ok = want == xor8(body.encode("ascii"))
+    except UnicodeEncodeError:
+        # Line noise decoded to U+FFFD by the frame reader — the body bytes are not
+        # what the firmware sent, so the frame is corrupt regardless of the crc line.
+        crc_ok = False
 
     values, error = _split_kv(lines[:-1])
     return Response(lines=lines, values=values, error=error, crc_ok=crc_ok)
@@ -245,6 +268,8 @@ class ProtocolClient:
         """Send a command line and return its parsed :class:`Response` (serialized on the bus)."""
         if self._ser is None:
             raise ProtocolError("client not open")
+        if not text.isascii():
+            raise ProtocolError(f"command is not ASCII: {text!r}")
         timeout = self.command_timeout if timeout is None else timeout
         async with self._lock:
             loop = asyncio.get_running_loop()

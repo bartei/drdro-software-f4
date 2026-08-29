@@ -7,8 +7,11 @@ without hardware.
 """
 import asyncio
 
+import pytest
+
 from dro.comms.protocol_client import (
     ProtocolClient,
+    ProtocolError,
     Response,
     frame_request,
     parse_response,
@@ -67,6 +70,26 @@ def test_parse_crc_mismatch():
 def test_parse_incomplete_frame():
     r = parse_response(["servo.max=720"])   # no crc line (timeout/garble)
     assert r.crc_ok is False and not r
+
+
+def test_parse_non_ascii_body_is_crc_fail_not_crash():
+    # Line noise decodes to U+FFFD in _read_frame; parse must flag the frame, not raise.
+    r = parse_response(["servo.max=7�0", "crc=00"])
+    assert r.crc_ok is False and not r
+
+
+def test_parse_garbled_crc_line():
+    r = parse_response(["servo.max=720", "crc=Z�"])
+    assert r.crc_ok is False and not r
+
+
+def test_accessors_tolerate_garbled_values():
+    r = parse_response(["servo.pos=1�3", "scales.pos=1,2,x,4", "servo.speed=?"])
+    assert r.as_int("servo.pos") is None
+    assert r.as_ints("scales.pos") == []
+    assert r.as_float("servo.speed") is None
+    assert r.as_floats("scales.pos") == []
+    assert r.as_int("missing") is None and r.as_ints("missing") == []
 
 
 # ── FakeSerial framing exactly like the firmware ─────────────────────
@@ -238,6 +261,39 @@ def test_glitch_error_is_retried():
         r = await c.command("version")
         assert r.text("version") == "v0.4.2-test"
         assert calls["n"] == 2            # retried once past the glitch
+
+    _run(_with_client(fake, go))
+
+
+def test_noise_bytes_in_frame_retried_end_to_end():
+    calls = {"n": 0}
+
+    class NoisySerial(FakeSerial):
+        def _respond(self, line):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                # Raw line noise inside the body (the crash from the field traceback).
+                self._inq += b"version=v0.4\xff2-test\ncrc=00\n\n"
+            else:
+                super()._respond(line)
+
+    fake = NoisySerial(_board_responder())
+
+    async def go(c):
+        r = await c.command("version")
+        assert r.crc_ok and r.text("version") == "v0.4.2-test"
+        assert calls["n"] == 2            # noisy frame failed CRC and was retried
+        assert c.connected is True
+
+    _run(_with_client(fake, go))
+
+
+def test_non_ascii_command_rejected():
+    fake = FakeSerial(_board_responder())
+
+    async def go(c):
+        with pytest.raises(ProtocolError):
+            await c.command("get servò.max")
 
     _run(_with_client(fake, go))
 
