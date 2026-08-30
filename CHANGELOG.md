@@ -2,6 +2,44 @@
 
 <!-- version list -->
 
+## v1.8.0-beta.2 (2026-08-30)
+
+### Bug Fixes
+
+- Try to make tests work again
+  ([`9cb0cce`](https://github.com/bartei/drdro-software-f4/commit/9cb0cceaab7d8661ce38c51984682a3f32afa20d))
+
+- **network**: Degrade gracefully when nmcli is unavailable
+  ([`31a0444`](https://github.com/bartei/drdro-software-f4/commit/31a0444f51eae7a9f1ca29443fcb18a958289866))
+
+### Continuous Integration
+
+- Skip test gate on dev while headless-runner failure is investigated
+  ([`9c699cc`](https://github.com/bartei/drdro-software-f4/commit/9c699cc90802b5701e0b568debe5e589fc75d84b))
+
+### Documentation
+
+- **v15**: Design + phased todo for v1.5 board integration
+  ([`ee577e6`](https://github.com/bartei/drdro-software-f4/commit/ee577e66114fadbea232566c919b5bd7649a9d0b))
+
+- **v15**: Mark phases 1-5 complete (bench gate remains)
+  ([`419bafd`](https://github.com/bartei/drdro-software-f4/commit/419bafd91bd89e9815c813ab7b96b8fabd3d7166))
+
+### Features
+
+- **board**: Board-selected transport, live reconfigure, dynamic scale count
+  ([`6081f3c`](https://github.com/bartei/drdro-software-f4/commit/6081f3cdee3d5473396701c48c4a9e3d97474691))
+
+- **comms**: Add TCP transport and board discovery for v1.5
+  ([`6907b0a`](https://github.com/bartei/drdro-software-f4/commit/6907b0ab65b0613162f2b27ce277b68ed09e09c5))
+
+- **home**: Responsive coordbar sizing for variable axis count
+  ([`2421fb2`](https://github.com/bartei/drdro-software-f4/commit/2421fb2b08648980cf4017dea40044afe830cda4))
+
+- **ui**: Add Connection setup screen for serial/TCP board link
+  ([`8d4a912`](https://github.com/bartei/drdro-software-f4/commit/8d4a91293013d9d65601303cbcd2187e6249ca65))
+
+
 ## v1.8.0-beta.1 (2026-08-17)
 
 ### Chores

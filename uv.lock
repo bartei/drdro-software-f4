@@ -456,7 +456,7 @@ wheels = [
 
 [[package]]
 name = "drdro-software"
-version = "1.8.0b1"
+version = "1.8.0b2"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
