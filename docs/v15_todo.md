@@ -38,7 +38,8 @@
 - [x] Verify grow/shrink + spacer/servobar pinning (in-app smoke; mock-GL can't build widgets in pytest)
 
 ## Phase 5 — verification & back-compat guards
-- [ ] Full `uv run pytest` green
-- [ ] Grep clean: no import of Half-2 modules
-- [ ] `git diff` clean on ignore-list files
+- [x] Full `uv run pytest` green (120: 97 baseline + 23 new)
+- [x] Grep clean: no import of Half-2 modules
+- [x] Changeset touches only intended files; ignore-list + Half-2 files untouched
+- [x] In-app build smoke: 28 screens instantiate, transport=serial default
 - [ ] Bench gate (user): v1.0 serial + v1.5 TCP/discovery/5-axis
