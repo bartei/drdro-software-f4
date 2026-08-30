@@ -20,11 +20,13 @@ import asyncio
 import os
 import time
 
+import serial
+
 from kivy.clock import Clock
 from kivy.event import EventDispatcher
 from kivy.properties import NumericProperty, BooleanProperty, ObjectProperty, ListProperty, StringProperty
 
-from dro.comms.protocol_client import ProtocolClient, Response
+from dro.comms.protocol_client import ProtocolClient, ProtocolError, Response
 from dro.dispatchers.axis import AxisDispatcher
 from dro.dispatchers.axis_transform import AxisTransform
 from dro.dispatchers.input import InputDispatcher
@@ -57,6 +59,7 @@ def map_sta(resp: Response) -> dict:
 class Board(EventDispatcher):
     connected = BooleanProperty(False)
     update_tick = NumericProperty(0)
+    scale_count = NumericProperty(SCALES_COUNT)      # inputs the connected board reports (scales.count)
     firmware_version = StringProperty("")            # cached on (re)connect (Stats screen, banner)
     firmware_update_required = BooleanProperty(False)  # firmware older than COMPANION_FW_VERSION
     blink = BooleanProperty(False)
@@ -64,14 +67,20 @@ class Board(EventDispatcher):
     inputs = ListProperty()
     axes = ListProperty()
 
-    def __init__(self, formats, offset_provider, *, port="/dev/serial0", baudrate=115200,
+    def __init__(self, formats, offset_provider, *, transport="serial",
+                 port="/dev/serial0", baudrate=115200, host="", tcp_port=5555,
                  poll_period=1.0 / 50, save_debounce=0.75, **kv):
         super().__init__(**kv)
         self.formats = formats
         self.offset_provider = offset_provider
         self.fast_data_values = dict()
 
-        self.connection = ProtocolClient(port, baudrate=baudrate)
+        # One line protocol, two pipes: RS-485 (pyserial) or Ethernet (TCP). A blank tcp host
+        # stays disconnected until the user sets the board IP in the Connection setup page.
+        if transport == "tcp":
+            self.connection = ProtocolClient(host=host or "", tcp_port=tcp_port)
+        else:
+            self.connection = ProtocolClient(port, baudrate=baudrate)
         self._poll_period = poll_period
         self._save_debounce = save_debounce
 
@@ -106,19 +115,43 @@ class Board(EventDispatcher):
 
     def start(self, *, period: float | None = None) -> None:
         """Start the poll loop on the running asyncio loop (call after the loop is up)."""
+        if period:
+            self._poll_period = period
         if self._running:
             return
         self._running = True
-        self._spawn(self.run(period or self._poll_period))
+        self._spawn(self.run())
 
-    async def run(self, period: float) -> None:
-        await self.open()
+    def set_poll_period(self, period: float) -> None:
+        """Live-adjust the status poll period (Hz). Picked up on the next loop iteration."""
+        self._poll_period = max(1e-3, period)
+
+    async def run(self) -> None:
         while self._running:
             t0 = time.monotonic()
-            await self.poll_once()
-            # Rate-limit to `period` by sleeping only the remainder after the sta round-trip,
-            # rather than adding a fixed sleep on top of it (which capped us well below target).
-            await asyncio.sleep(max(0.0, period - (time.monotonic() - t0)))
+            try:
+                # Open lazily and keep retrying: the port may be absent at startup (board
+                # unplugged, or no serial port at all on a dev host) and appear later.
+                if not self.connection.is_open:
+                    await self.open()
+                await self.poll_once()
+            except (serial.SerialException, ProtocolError, OSError) as e:
+                self._handle_link_error(e)
+                await asyncio.sleep(1.0)      # back off before retrying the port open
+                continue
+            # Rate-limit to the poll period by sleeping only the remainder after the sta
+            # round-trip (read live so the Connection page can retune the rate on the fly).
+            await asyncio.sleep(max(0.0, self._poll_period - (time.monotonic() - t0)))
+
+    def _handle_link_error(self, e: Exception) -> None:
+        """Port open/link failure — stay down and let `run` retry, never kill the poll loop."""
+        if self.connected:
+            log.warning("Board link error, marking disconnected: %s", e)
+        else:
+            log.debug("Board link unavailable (will retry): %s", e)
+        self.connected = False
+        self.comm_rate = 0.0
+        self._last_poll_t = None
 
     def stop(self) -> None:
         self._running = False
@@ -132,6 +165,23 @@ class Board(EventDispatcher):
         self._settings = None
         self.connected = False
         self._paused = False
+
+    def reconfigure(self, *, transport: str, port: str | None = None, baudrate: int | None = None,
+                    host: str | None = None, tcp_port: int | None = None) -> None:
+        """Swap the link to new connection settings without restarting the app.
+
+        The single poll loop reads `self.connection` each pass, so replacing it (and closing the
+        old one) is enough — the loop reopens the new pipe on its next iteration."""
+        old = self.connection
+        if transport == "tcp":
+            self.connection = ProtocolClient(host=host or "", tcp_port=int(tcp_port or 5555))
+        else:
+            self.connection = ProtocolClient(port or "/dev/serial0", baudrate=int(baudrate or 115200))
+        self._settings = None
+        self.connected = False
+        self._paused = False
+        log.info("Reconfigured board link → %s", self.connection.description)
+        self._spawn(old.close())
 
     async def poll_once(self) -> None:
         """One poll cycle: `sta` → fast_data_values, connection/cache handling, tick bump."""
@@ -187,6 +237,14 @@ class Board(EventDispatcher):
         if r.crc_ok:
             self._settings = r
             log.info("Loaded board settings snapshot (%d vars)", len(r.values))
+            # Size the host's inputs to what this board actually has (scales.count is RO).
+            # v1.0 firmware doesn't know scales.count → n stays None → keep the default 4.
+            n = r.as_int("scales.count")
+            if n is None:
+                cnt = await self.connection.get("scales.count")
+                n = cnt.as_int("scales.count") if cnt.crc_ok else None
+            if n is not None:
+                self._apply_scale_count(n)
         v = await self.connection.command("version")
         if v.crc_ok and v.text("version"):
             self.firmware_version = v.text("version")
@@ -194,6 +252,27 @@ class Board(EventDispatcher):
         if self.firmware_update_required:
             log.warning("Firmware %s is older than the companion version this software "
                         "needs — prompting for an update", self.firmware_version)
+
+    def _apply_scale_count(self, n: int) -> None:
+        """Grow/shrink the InputDispatcher list to the board's reported scale count.
+
+        Mutating the `inputs` ListProperty fires Kivy observers on the main thread (the poll
+        loop runs under async_run in that thread), so app.inputs/app.scales resync via the
+        alias binding set up in MainApp.build(). Axes are left as-is; an axis referencing a
+        now-missing input already guards on len(self.inputs)."""
+        n = max(0, int(n))
+        cur = len(self.inputs)
+        if n == cur:
+            self.scale_count = n
+            return
+        if n > cur:
+            for i in range(cur, n):
+                self.inputs.append(InputDispatcher(board=self, inputIndex=i, id_override=f"{i}"))
+            log.info("Board reports %d scales — grew inputs %d → %d", n, cur, n)
+        else:
+            del self.inputs[n:]
+            log.info("Board reports %d scales — shrank inputs %d → %d", n, cur, n)
+        self.scale_count = n
 
     # ── write / read facade used by the dispatchers ─────────────────
     def write(self, name: str, value, idx: int | None = None) -> None:
