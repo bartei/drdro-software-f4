@@ -197,6 +197,9 @@ class ProtocolClient:
         port: str | None = None,
         *,
         baudrate: int = 115200,
+        host: str | None = None,
+        tcp_port: int = 5555,
+        connect_timeout: float = 2.0,
         byte_timeout: float = 0.25,
         command_timeout: float = 1.0,
         max_errors: int = 5,
@@ -205,6 +208,9 @@ class ProtocolClient:
     ):
         self.port = port
         self.baudrate = baudrate
+        self.host = host
+        self.tcp_port = tcp_port
+        self.connect_timeout = connect_timeout
         self.byte_timeout = byte_timeout
         self.command_timeout = command_timeout
         self.max_errors = max_errors
@@ -212,17 +218,38 @@ class ProtocolClient:
 
         self._ser = transport
         self._lock = asyncio.Lock()
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dro-serial")
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dro-link")
 
         self._connected = False
         self._error_count = 0
         self.error_total = 0                          # cumulative comm errors (for the Stats screen)
         self._last_error: str | None = None
+        self._transport_broken = False                # set when the pipe itself failed (reopen)
+
+    # ── transport selection ──────────────────────────────────────────
+    @property
+    def kind(self) -> str:
+        """"tcp" when built for Ethernet (host given, even if blank), else "serial".
+
+        The distinction is host is None (serial) vs host is a string (tcp) — a blank tcp host
+        is a not-yet-configured board, which stays disconnected rather than falling back to serial.
+        """
+        return "tcp" if self.host is not None else "serial"
+
+    @property
+    def description(self) -> str:
+        """Human-readable link target for logs / the status bar."""
+        return f"tcp://{self.host}:{self.tcp_port}" if self.host is not None else str(self.port)
 
     # ── connection state (mirrors the old ConnectionManager semantics) ──
     @property
     def connected(self) -> bool:
         return self._connected
+
+    @property
+    def is_open(self) -> bool:
+        """True once the underlying transport is open (independent of link health)."""
+        return self._ser is not None
 
     def _mark_ok(self) -> None:
         if self._error_count:
@@ -231,7 +258,7 @@ class ProtocolClient:
         if not self._connected:
             self._connected = True
             self._last_error = None
-            log.info("Communication restored with %s", self.port)
+            log.info("Communication restored with %s", self.description)
 
     def _mark_error(self, message: str) -> None:
         self._last_error = message
@@ -241,7 +268,7 @@ class ProtocolClient:
             self._connected = False
             log.warning(
                 "Communication lost with %s after %d consecutive errors: %s",
-                self.port, self._error_count, message,
+                self.description, self._error_count, message,
             )
 
     # ── lifecycle ───────────────────────────────────────────────────
@@ -249,18 +276,38 @@ class ProtocolClient:
         if self._ser is not None:
             return
         loop = asyncio.get_running_loop()
-        self._ser = await loop.run_in_executor(self._executor, self._open_serial)
+        self._ser = await loop.run_in_executor(self._executor, self._open_transport)
 
-    def _open_serial(self):
+    def _open_transport(self):
+        """Build the byte pipe for the configured transport (runs on the executor thread)."""
+        if self.kind == "tcp":
+            if not self.host:
+                # Ethernet selected but no board IP set yet — stay down until one is configured.
+                raise ConnectionError("no board IP configured")
+            from dro.comms.tcp_transport import TcpTransport
+            return TcpTransport(self.host, self.tcp_port,
+                                timeout=self.byte_timeout, connect_timeout=self.connect_timeout)
         return serial.Serial(self.port, self.baudrate, timeout=self.byte_timeout)
+
+    async def _reset_transport(self) -> None:
+        """Drop the current pipe (so :attr:`is_open` flips false and the poll loop reopens),
+        keeping the executor alive. Used after a transport-level failure."""
+        ser, self._ser = self._ser, None
+        if ser is not None:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(self._executor, self._safe_close, ser)
+
+    @staticmethod
+    def _safe_close(ser) -> None:
+        try:
+            ser.close()
+        except Exception as e:  # noqa: BLE001 — closing must not raise upward
+            log.debug("Error closing transport: %s", e)
 
     async def close(self) -> None:
         ser, self._ser = self._ser, None
         if ser is not None:
-            try:
-                ser.close()
-            except Exception as e:  # noqa: BLE001 — closing must not raise upward
-                log.error("Error closing serial port: %s", e)
+            self._safe_close(ser)
         self._executor.shutdown(wait=False)
 
     # ── core transaction ─────────────────────────────────────────────
@@ -280,6 +327,11 @@ class ProtocolClient:
             self._mark_ok()
         else:
             self._mark_error(self._last_error or "no valid frame")
+        # A transport-level failure (closed socket / yanked cable) can't be fixed by retrying
+        # on the same handle — drop it so is_open flips false and the poll loop reopens.
+        if self._transport_broken:
+            self._transport_broken = False
+            await self._reset_transport()
         return resp
 
     async def run_blocking(self, fn):
@@ -301,8 +353,11 @@ class ProtocolClient:
                 self._ser.write(frame_request(text, self.request_checksum))
                 self._ser.flush()
                 lines = _read_frame(self._ser, timeout)
-            except serial.SerialException as e:
+            except (serial.SerialException, OSError) as e:
+                # Serial cable yanked or TCP socket closed/reset — the pipe is dead, not just
+                # a glitchy frame. Flag it so command() reopens after this transaction.
                 self._last_error = str(e)
+                self._transport_broken = True
                 last = Response()
                 break
             resp = parse_response(lines)
@@ -347,11 +402,16 @@ async def _main(argv: list[str]) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     if len(argv) < 2:
         print(__doc__)
-        print("usage: python -m dro.comms.protocol_client <port> [command words...]")
+        print("usage: python -m dro.comms.protocol_client <port|tcp://host[:port]> [command words...]")
         return 2
-    port = argv[1]
+    target = argv[1]
     cmd = " ".join(argv[2:]) or "version"
-    client = ProtocolClient(port)
+    if target.startswith("tcp://"):
+        hostport = target[len("tcp://"):]
+        host, _, p = hostport.partition(":")
+        client = ProtocolClient(host=host, tcp_port=int(p) if p else 5555)
+    else:
+        client = ProtocolClient(target)
     await client.open()
     try:
         resp = await client.command(cmd)
