@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.8.0-beta.3 (2026-08-30)
+
+### Bug Fixes
+
+- **comms**: Resync frames around unsolicited firmware output
+  ([`1b71003`](https://github.com/bartei/drdro-software-f4/commit/1b71003a960f9df116d3f93d33bdc98700786d6b))
+
+### Features
+
+- **firmware**: Select the release source from the connected board
+  ([`fa615c8`](https://github.com/bartei/drdro-software-f4/commit/fa615c8b0563bad316110033f62a845a6e86929a))
+
+- **stats**: Show link health on the Stats screen
+  ([`9bcedd8`](https://github.com/bartei/drdro-software-f4/commit/9bcedd87ef593734cbd5b973be083f07523eee94))
+
+
 ## v1.8.0-beta.2 (2026-08-30)
 
 ### Bug Fixes
