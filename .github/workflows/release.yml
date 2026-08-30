@@ -12,12 +12,6 @@ jobs:
   # Tests gate the release: if this job fails, the release job never runs, so we never
   # publish untested code.
   test:
-    # TEMP (2026-08-30): the test job fails on the headless ubuntu runner in a way that is NOT
-    # reproducible locally (`uv run pytest -q` → 120 passed). Skip it on `dev` so the pre-release
-    # pipeline isn't blocked while the CI-only failure is investigated; `main` still gates on tests.
-    # Because `release` needs `test`, skipping here also holds dev releases until this is removed.
-    # Re-enable by deleting this `if:` once the headless failure is fixed.
-    if: github.ref != 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
