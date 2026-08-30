@@ -20,12 +20,22 @@ auto-direction transceiver can drop the firmware's first TX byte after a long RX
 make a valid command look like ``unknown command``/``unknown variable`` — those (and any
 CRC/framing failure) are retried; genuine protocol errors (``read-only``, ``bad index``,
 ``value out of range``) are returned as-is.
+
+**The line is shared.** The firmware's CLI UART is not exclusively ours: other firmware
+subsystems log asynchronously onto it (``ETH: link up``, ``DHCP: discovering (PHY ...)``,
+``PHY: mode '100M full' -> ...``). Such a line can land *inside* a response frame. It is not
+part of the body the firmware checksummed, so :func:`_read_frame` filters it out by shape
+(a body line is always ``dotted.key=value``) and the CRC then validates on the first try —
+what used to be a multi-second retry storm is now a filtered line and a log entry. Stray
+lines are counted in :class:`LinkStats` so the condition stays visible.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
@@ -35,6 +45,24 @@ log = logging.getLogger(__name__)
 
 # Errors that are likely an RS-485 turnaround glitch (dropped byte) rather than a real answer.
 _GLITCH_ERRORS = frozenset({"unknown command", "unknown variable"})
+
+# A response body line is always `<key>=<value>` with an identifier key (optionally dotted,
+# never containing a space). Firmware status chatter — "DHCP: discovering (PHY 'auto-neg
+# all')..." — cannot match, which is exactly what makes it separable from a real frame.
+_BODY_LINE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)*=")
+
+# Dead time between retries of a failed transaction. What is being retried is a dropped byte
+# on RS-485 turnaround, and the firmware is ready again immediately — this only has to let the
+# transceiver settle. It stalls a bus that also carries the status poll, so it stays short.
+_RETRY_BACKOFF = 0.02
+
+# Minimum seconds between anomaly warnings *per category*. A stray-line storm (the firmware
+# retrying DHCP every few seconds, say) must not turn logging into the bottleneck; suppressed
+# occurrences are counted and reported with the next one that gets through.
+_WARN_PERIOD = 5.0
+
+# Rolling window of round-trip samples kept for the percentile report.
+_RTT_WINDOW = 512
 
 
 def xor8(data: bytes) -> int:
@@ -66,6 +94,8 @@ class Response:
     values: dict[str, str] = field(default_factory=dict)
     error: str | None = None
     crc_ok: bool = False
+    stray: list[str] = field(default_factory=list)   # non-protocol lines seen while framing
+    rtt: float = 0.0                                 # seconds, request write → frame complete
 
     def __bool__(self) -> bool:
         return self.crc_ok and self.error is None
@@ -109,12 +139,17 @@ class Response:
             return []
 
 
-def parse_response(lines: list[str]) -> Response:
-    """Parse the lines of one frame (body lines incl. the trailing ``crc=HH`` line)."""
+def parse_response(lines: list[str], stray: list[str] | None = None) -> Response:
+    """Parse the lines of one frame (body lines incl. the trailing ``crc=HH`` line).
+
+    ``stray`` is the non-protocol chatter :func:`_read_frame` filtered out while framing this
+    response; it is carried on the result for logging and never affects the checksum.
+    """
+    stray = list(stray or ())
     if not lines or not lines[-1].startswith("crc="):
         # No terminating crc line → incomplete/garbled frame (timeout or glitch).
         values, error = _split_kv(lines)
-        return Response(lines=lines, values=values, error=error, crc_ok=False)
+        return Response(lines=lines, values=values, error=error, crc_ok=False, stray=stray)
 
     body = "".join(l + "\n" for l in lines[:-1])
     try:
@@ -129,7 +164,7 @@ def parse_response(lines: list[str]) -> Response:
         crc_ok = False
 
     values, error = _split_kv(lines[:-1])
-    return Response(lines=lines, values=values, error=error, crc_ok=crc_ok)
+    return Response(lines=lines, values=values, error=error, crc_ok=crc_ok, stray=stray)
 
 
 def _split_kv(lines: list[str]) -> tuple[dict[str, str], str | None]:
@@ -147,33 +182,53 @@ def _split_kv(lines: list[str]) -> tuple[dict[str, str], str | None]:
     return values, error
 
 
-def _read_frame(ser, timeout: float) -> list[str]:
+def _read_frame(ser, timeout: float) -> tuple[list[str], list[str]]:
     """Read one framed response: body ``key=value`` lines until a blank line.
 
-    Returns the body lines *including* the trailing ``crc=HH`` line. On timeout returns
-    whatever was collected (possibly empty/partial), which :func:`parse_response` flags
-    as ``crc_ok=False``.
+    Returns ``(body_lines, stray_lines)``. ``body_lines`` includes the trailing ``crc=HH``
+    line. On timeout it returns whatever was collected (possibly empty/partial), which
+    :func:`parse_response` flags as ``crc_ok=False``.
+
+    Two things this does beyond splitting on newlines:
+
+    * **Resynchronise.** The firmware logs asynchronously onto the same UART, so a line like
+      ``DHCP: discovering (PHY 'auto-neg all')...`` can appear anywhere in the stream. It is
+      not part of the body the firmware checksummed, so admitting it would break the CRC of an
+      otherwise perfect frame. Lines that don't have the ``dotted.key=value`` shape of a body
+      line are therefore split off into ``stray`` rather than corrupting the response. A stray
+      line also does not count as "content", so one arriving before the reply can't let the
+      blank line that follows it terminate an empty frame.
+    * **Read in bursts.** One blocking ``read(1)`` to wait for the head of the burst, then a
+      single ``read(in_waiting)`` to take everything the driver already has. A 117-byte ``sta``
+      reply costs a couple of syscalls instead of 117 — at a 50 Hz poll that is the difference
+      between ~5.8k and ~100 syscalls per second on the UART.
     """
     deadline = time.monotonic() + timeout
     buf = b""
     lines: list[str] = []
+    stray: list[str] = []
     seen = False
     while time.monotonic() < deadline:
-        c = ser.read(1)
-        if not c:
+        chunk = ser.read(1)
+        if not chunk:
             continue
-        if c == b"\n":
-            line = buf.decode("ascii", "replace").replace("\r", "").strip()
-            buf = b""
+        pending = getattr(ser, "in_waiting", 0)
+        if pending:
+            chunk += ser.read(pending)
+        buf += chunk
+        while b"\n" in buf:
+            raw, buf = buf.split(b"\n", 1)
+            line = raw.decode("ascii", "replace").replace("\r", "").strip()
             if line == "":
                 if seen:
-                    return lines
+                    return lines, stray
                 continue          # leading blank/glitch before any content
+            if not _BODY_LINE.match(line):
+                stray.append(line)
+                continue          # firmware chatter sharing the line — not ours to checksum
             seen = True
             lines.append(line)
-        else:
-            buf += c
-    return lines
+    return lines, stray
 
 
 def _fmt(value) -> str:
@@ -187,6 +242,97 @@ def _fmt(value) -> str:
 
 class ProtocolError(Exception):
     """Raised for client-side protocol/usage errors (not firmware ``error=`` replies)."""
+
+
+class LinkStats:
+    """Rolling health counters for the link, so a stutter leaves evidence behind.
+
+    Everything here is written from the executor thread and read from the Kivy thread. The
+    writes are individual attribute rebinds and a bounded ``deque`` append — both atomic under
+    the GIL — so a reader can see a momentarily inconsistent *set* of counters but never a
+    torn value. That is the right trade for diagnostics: no lock on the hot path.
+    """
+
+    def __init__(self, window: int = _RTT_WINDOW):
+        self.commands = 0            # transactions attempted (a retry is not a new command)
+        self.ok = 0                  # transactions that returned a CRC-valid frame
+        self.crc_fail = 0            # a frame arrived but the checksum did not match
+        self.timeouts = 0            # no frame at all within the command timeout
+        self.glitch = 0              # CRC-valid `unknown command`/`unknown variable`
+        self.retries = 0             # extra attempts spent across all transactions
+        self.transport_errors = 0    # the pipe itself failed (cable/socket)
+        self.stray_lines = 0         # non-protocol lines filtered out of frames
+        self.last_stray: str | None = None
+        self._rtts: deque[float] = deque(maxlen=window)
+
+    def record_rtt(self, seconds: float) -> None:
+        self._rtts.append(seconds)
+
+    def reset(self) -> None:
+        """Zero the counters — used when the link is reconfigured onto a new target."""
+        self.__init__(window=self._rtts.maxlen)
+
+    @property
+    def rtt_ms(self) -> dict[str, float]:
+        """min / p50 / p95 / max of the rolling round-trip window, in milliseconds."""
+        if not self._rtts:
+            return {"min": 0.0, "p50": 0.0, "p95": 0.0, "max": 0.0}
+        ordered = sorted(self._rtts)
+        def pct(q: float) -> float:
+            return ordered[min(len(ordered) - 1, int(len(ordered) * q))] * 1000.0
+        return {"min": ordered[0] * 1000.0, "p50": pct(0.50),
+                "p95": pct(0.95), "max": ordered[-1] * 1000.0}
+
+    @property
+    def failures(self) -> int:
+        return self.crc_fail + self.timeouts + self.glitch + self.transport_errors
+
+    def snapshot(self) -> dict:
+        """Flat dict for the Stats screen and the periodic health line."""
+        r = self.rtt_ms
+        return {
+            "commands": self.commands, "ok": self.ok, "failures": self.failures,
+            "crc_fail": self.crc_fail, "timeouts": self.timeouts, "glitch": self.glitch,
+            "retries": self.retries, "transport_errors": self.transport_errors,
+            "stray_lines": self.stray_lines, "last_stray": self.last_stray,
+            "rtt_min_ms": r["min"], "rtt_p50_ms": r["p50"],
+            "rtt_p95_ms": r["p95"], "rtt_max_ms": r["max"],
+        }
+
+    def summary(self) -> str:
+        """One-line health digest for the log."""
+        r = self.rtt_ms
+        return (
+            f"cmds={self.commands} ok={self.ok} fail={self.failures} "
+            f"(crc={self.crc_fail} timeout={self.timeouts} glitch={self.glitch} "
+            f"transport={self.transport_errors}) retries={self.retries} "
+            f"stray={self.stray_lines} "
+            f"rtt_ms p50={r['p50']:.1f} p95={r['p95']:.1f} max={r['max']:.1f}"
+        )
+
+
+class _WarnGate:
+    """Rate limiter for the per-transaction anomaly warnings.
+
+    Comms faults arrive in bursts — the point of the log is to show that a burst happened and
+    what it looked like, not to print a line per poll at 50 Hz. Occurrences suppressed between
+    two emissions are counted and reported with the next one that gets through.
+    """
+
+    def __init__(self, period: float = _WARN_PERIOD):
+        self.period = period
+        self._last: dict[str, float] = {}
+        self._held: dict[str, int] = {}
+
+    def allow(self, category: str) -> int | None:
+        """Return the number of suppressed occurrences to report, or None to stay quiet."""
+        now = time.monotonic()
+        last = self._last.get(category)
+        if last is not None and now - last < self.period:
+            self._held[category] = self._held.get(category, 0) + 1
+            return None
+        self._last[category] = now
+        return self._held.pop(category, 0)
 
 
 class ProtocolClient:
@@ -226,6 +372,12 @@ class ProtocolClient:
         self._last_error: str | None = None
         self._transport_broken = False                # set when the pipe itself failed (reopen)
 
+        # Link instrumentation: counters + rolling round-trip window, plus the gate that keeps
+        # a fault burst from flooding the log. Read by Board for the periodic health line and
+        # by the Stats screen.
+        self.stats = LinkStats()
+        self._warn = _WarnGate()
+
     # ── transport selection ──────────────────────────────────────────
     @property
     def kind(self) -> str:
@@ -253,12 +405,16 @@ class ProtocolClient:
 
     def _mark_ok(self) -> None:
         if self._error_count:
-            log.debug("Communication OK after %d error(s)", self._error_count)
+            # Worth INFO rather than DEBUG once it is more than a single dropped frame: this
+            # is the line that dates a stutter and says how long the link was unhappy.
+            emit = log.info if self._error_count > 1 else log.debug
+            emit("Link recovered after %d consecutive error(s) on %s — last was %s",
+                 self._error_count, self.description, self._last_error)
         self._error_count = 0
         if not self._connected:
             self._connected = True
             self._last_error = None
-            log.info("Communication restored with %s", self.description)
+            log.info("Communication restored with %s | %s", self.description, self.stats.summary())
 
     def _mark_error(self, message: str) -> None:
         self._last_error = message
@@ -267,8 +423,8 @@ class ProtocolClient:
         if self._connected and self._error_count >= self.max_errors:
             self._connected = False
             log.warning(
-                "Communication lost with %s after %d consecutive errors: %s",
-                self.description, self._error_count, message,
+                "Communication lost with %s after %d consecutive errors: %s | %s",
+                self.description, self._error_count, message, self.stats.summary(),
             )
 
     # ── lifecycle ───────────────────────────────────────────────────
@@ -347,30 +503,83 @@ class ProtocolClient:
     def _transact(self, text: str, timeout: float, retries: int) -> Response:
         """Blocking write+read+retry. Runs on the executor thread."""
         last = Response()
-        for attempt in range(max(1, retries)):
+        attempts = max(1, retries)
+        self.stats.commands += 1
+        for attempt in range(attempts):
+            if attempt:
+                self.stats.retries += 1
+            t0 = time.monotonic()
             try:
                 self._ser.reset_input_buffer()
                 self._ser.write(frame_request(text, self.request_checksum))
                 self._ser.flush()
-                lines = _read_frame(self._ser, timeout)
+                lines, stray = _read_frame(self._ser, timeout)
             except (serial.SerialException, OSError) as e:
                 # Serial cable yanked or TCP socket closed/reset — the pipe is dead, not just
                 # a glitchy frame. Flag it so command() reopens after this transaction.
                 self._last_error = str(e)
                 self._transport_broken = True
+                self.stats.transport_errors += 1
+                log.error("Link down: transport failure on %s during %r — %s",
+                          self.description, text, e)
                 last = Response()
                 break
-            resp = parse_response(lines)
+
+            rtt = time.monotonic() - t0
+            self.stats.record_rtt(rtt)
+            if stray:
+                self.stats.stray_lines += len(stray)
+                self.stats.last_stray = stray[-1]
+                self._log_stray(text, stray)
+
+            resp = parse_response(lines, stray)
+            resp.rtt = rtt
             last = resp
             if resp.crc_ok and resp.error not in _GLITCH_ERRORS:
+                self.stats.ok += 1
                 return resp
-            # CRC/framing failure or a likely turnaround-glitch error → retry.
-            self._last_error = (
-                f"crc/framing fail (attempt {attempt + 1})" if not resp.crc_ok
-                else f"glitch '{resp.error}' (attempt {attempt + 1})"
-            )
-            time.sleep(0.15)
+
+            # CRC/framing failure or a likely turnaround-glitch error → retry (if any left).
+            if resp.crc_ok:
+                self.stats.glitch += 1
+                reason = f"glitch {resp.error!r}"
+            elif not lines:
+                self.stats.timeouts += 1
+                reason = f"no reply within {timeout * 1000:.0f} ms"
+            else:
+                self.stats.crc_fail += 1
+                reason = "crc/framing fail"
+            self._last_error = f"{reason} (attempt {attempt + 1}/{attempts})"
+            self._log_bad_frame(text, reason, attempt, attempts, lines, rtt)
+            # Only back off if another attempt is actually going to happen — sleeping after
+            # the final attempt is pure dead time on a bus the status poll is waiting for.
+            if attempt + 1 < attempts:
+                time.sleep(_RETRY_BACKOFF)
         return last
+
+    # ── diagnostics (executor thread; rate-limited so a burst can't flood) ──
+    def _log_stray(self, text: str, stray: list[str]) -> None:
+        held = self._warn.allow("stray")
+        if held is None:
+            return
+        log.warning(
+            "Link chatter: unsolicited firmware output on %s during %r, filtered out of the "
+            "frame — %s%s",
+            self.description, text, " | ".join(repr(s) for s in stray[:3]),
+            f" (+{held} more since the last report)" if held else "",
+        )
+
+    def _log_bad_frame(self, text: str, reason: str, attempt: int, attempts: int,
+                       lines: list[str], rtt: float) -> None:
+        held = self._warn.allow("badframe")
+        if held is None:
+            return
+        log.warning(
+            "Link fault: %s on %s to %r after %.1f ms (attempt %d/%d) — got %s%s",
+            reason, self.description, text, rtt * 1000.0, attempt + 1, attempts,
+            " | ".join(repr(l) for l in lines[:4]) if lines else "nothing",
+            f" (+{held} more since the last report)" if held else "",
+        )
 
     # ── convenience commands ─────────────────────────────────────────
     async def get(self, name: str) -> Response:
@@ -381,8 +590,17 @@ class ProtocolClient:
         text = f"set {name} {idx} {v}" if idx is not None else f"set {name} {v}"
         return await self.command(text)
 
-    async def sta(self, *, timeout: float = 0.5) -> Response:
-        return await self.command("sta", timeout=timeout)
+    async def sta(self, *, timeout: float = 0.25, retries: int = 1) -> Response:
+        """Status poll — deliberately *not* retried, and on a short leash.
+
+        `sta` is issued continuously (50 Hz on RS-485, 100 Hz on Ethernet). Retrying one is
+        pointless: the next poll is already the retry, and it carries fresher data. Worse, a
+        retry holds the bus lock, so three attempts at the old 0.5 s timeout could freeze the
+        readout — and every UI write queued behind it — for the better part of two seconds.
+        That was the stutter. One attempt on a 0.25 s leash caps a lost poll at ~12 periods,
+        and a measured round trip is ~14 ms, so the leash is still ~17x the p95.
+        """
+        return await self.command("sta", timeout=timeout, retries=retries)
 
     async def settings(self, *, timeout: float = 2.0) -> Response:
         return await self.command("settings", timeout=timeout)

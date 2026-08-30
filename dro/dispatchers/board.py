@@ -69,7 +69,8 @@ class Board(EventDispatcher):
 
     def __init__(self, formats, offset_provider, *, transport="serial",
                  port="/dev/serial0", baudrate=115200, host="", tcp_port=5555,
-                 poll_period=1.0 / 50, save_debounce=0.75, **kv):
+                 poll_period=1.0 / 50, save_debounce=0.75, health_period=30.0,
+                 down_poll_period=0.5, **kv):
         super().__init__(**kv)
         self.formats = formats
         self.offset_provider = offset_provider
@@ -82,6 +83,12 @@ class Board(EventDispatcher):
         else:
             self.connection = ProtocolClient(port, baudrate=baudrate)
         self._poll_period = poll_period
+        # Cadence to fall back to once the link is declared down. Polling a board that isn't
+        # answering at the full 50 Hz is pure bus pressure: it can't help us reconnect (one
+        # good frame does that, and it will arrive just as well at 2 Hz), and if the board is
+        # wedged with an unserviced UART, continuing to stuff its RX buffer is the opposite of
+        # helpful. Backing off also stops a disconnected board from filling the log.
+        self._down_poll_period = down_poll_period
         self._save_debounce = save_debounce
 
         self._settings: Response | None = None        # last `settings` snapshot (cache)
@@ -98,6 +105,17 @@ class Board(EventDispatcher):
         self._diag_counter = 0
         self._save_task: asyncio.Task | None = None
         self._tasks: set[asyncio.Task] = set()
+
+        # Poll-loop health. `sta` costs ~14 ms on RS-485 at 115200 (a 117-byte frame is 10 ms
+        # of pure wire time), so a 50 Hz poll runs at ~70% duty with only ~6 ms of slack — an
+        # overrun is normal noise, a *run* of them is the thing worth seeing. Tracked here and
+        # folded into the periodic health line together with the client's link counters.
+        self._health_period = health_period
+        self._last_health_t = 0.0
+        self._cycles = 0                               # poll cycles since the last health line
+        self._overruns = 0                             # cycles that missed the poll deadline
+        self._worst_cycle = 0.0                        # slowest cycle since the last health line
+        self._backed_off = False                       # currently polling at the down-link rate
 
         self.servo = ServoDispatcher(board=self, formats=formats, id_override="0")
         for i in range(SCALES_COUNT):
@@ -141,7 +159,65 @@ class Board(EventDispatcher):
                 continue
             # Rate-limit to the poll period by sleeping only the remainder after the sta
             # round-trip (read live so the Connection page can retune the rate on the fly).
-            await asyncio.sleep(max(0.0, self._poll_period - (time.monotonic() - t0)))
+            elapsed = time.monotonic() - t0
+            period = self._current_period()
+            self._track_cycle(elapsed, period)
+            await asyncio.sleep(max(0.0, period - elapsed))
+
+    def _current_period(self) -> float:
+        """Poll period for the next cycle — the configured rate, or the down-link backoff."""
+        if self.connected:
+            if self._backed_off:
+                self._backed_off = False
+            return self._poll_period
+        if not self._backed_off:
+            self._backed_off = True
+            log.info("Link idle: %s is not answering, backing the status poll off to %.1f Hz "
+                     "until it does", self.connection.description, 1.0 / self._down_poll_period)
+        return max(self._poll_period, self._down_poll_period)
+
+    def _track_cycle(self, elapsed: float, period: float | None = None) -> None:
+        """Account one poll cycle against the period it was actually aiming for."""
+        self._cycles += 1
+        self._worst_cycle = max(self._worst_cycle, elapsed)
+        if elapsed > (self._current_period() if period is None else period):
+            self._overruns += 1
+
+        now = time.monotonic()
+        if not self._last_health_t:
+            self._last_health_t = now
+            return
+        if now - self._last_health_t < self._health_period:
+            return
+        self._report_health(now - self._last_health_t)
+        self._last_health_t = now
+        self._cycles = self._overruns = 0
+        self._worst_cycle = 0.0
+
+    def _report_health(self, window: float) -> None:
+        """Log one digest of link + poll-loop health for the window just ended.
+
+        INFO when something was off (failures, stray firmware chatter, or a poll loop that
+        could not keep its period), DEBUG otherwise — so a healthy machine stays quiet but a
+        stutter always leaves a dated, quantified line behind in /var/log/drdro/app.log.
+        """
+        stats = getattr(self.connection, "stats", None)
+        if stats is None:                     # a stubbed client in tests
+            return
+        over_pct = (100.0 * self._overruns / self._cycles) if self._cycles else 0.0
+        target = 1.0 / self._current_period()
+        line = (
+            f"Link health: {window:.0f}s on {self.connection.description}, "
+            f"{self.comm_rate:.1f} Hz achieved vs {target:.0f} Hz target"
+            f"{' (backed off, link down)' if self._backed_off else ''}, "
+            f"cycles={self._cycles} overruns={self._overruns} ({over_pct:.0f}%) "
+            f"worst_cycle={self._worst_cycle * 1000:.0f} ms | {stats.summary()}"
+        )
+        unhealthy = stats.failures or stats.stray_lines or over_pct > 10.0
+        (log.info if unhealthy else log.debug)(line)
+        if stats.last_stray:
+            log.info("Link chatter: most recent unsolicited firmware line was %r",
+                     stats.last_stray)
 
     def _handle_link_error(self, e: Exception) -> None:
         """Port open/link failure — stay down and let `run` retry, never kill the poll loop."""
@@ -180,6 +256,10 @@ class Board(EventDispatcher):
         self._settings = None
         self.connected = False
         self._paused = False
+        # Health counters describe a link; they must not carry over onto a different target.
+        self._last_health_t = 0.0
+        self._cycles = self._overruns = 0
+        self._worst_cycle = 0.0
         log.info("Reconfigured board link → %s", self.connection.description)
         self._spawn(old.close())
 
@@ -306,6 +386,13 @@ class Board(EventDispatcher):
             log.info("Settings saved to board flash")
         else:
             log.warning("Settings save failed: %s", r.error)
+
+    def link_stats(self) -> dict:
+        """Flat link-health snapshot for the Stats screen (empty if the client has none)."""
+        stats = getattr(self.connection, "stats", None)
+        snap = stats.snapshot() if stats is not None else {}
+        snap["overrun_pct"] = (100.0 * self._overruns / self._cycles) if self._cycles else 0.0
+        return snap
 
     def cached(self, name: str, idx: int | None = None) -> str | None:
         """Read a value from the last `settings` snapshot (synchronous, for the UI thread)."""

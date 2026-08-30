@@ -63,6 +63,16 @@ class TcpTransport:
         out, self._buf = self._buf[:size], self._buf[size:]
         return out
 
+    @property
+    def in_waiting(self) -> int:
+        """Bytes already buffered locally (pyserial parity).
+
+        The frame reader uses this to drain a burst in one call after its first blocking
+        ``read(1)``. Only the local buffer is reported — pulling more from the socket here
+        would need a syscall that ``read`` is about to make anyway.
+        """
+        return len(self._buf)
+
     def write(self, data) -> int:
         self._sock.sendall(bytes(data))
         return len(data)

@@ -3,6 +3,7 @@ the pure `sta`→fast_data_values mapping and the settings-cache reader, plus th
 transport selection, dynamic scale count, and live reconfigure (built with a real Board but
 no open port — the link opens lazily inside `run()`)."""
 import asyncio
+import time
 
 from kivy.event import EventDispatcher
 from kivy.properties import NumericProperty
@@ -121,3 +122,85 @@ def test_reconfigure_serial_to_tcp():
     conn = asyncio.run(go())
     assert conn.kind == "tcp" and conn.description == "tcp://192.168.0.7:5555"
     assert b.connected is False         # forced down until the new pipe reopens
+
+
+# ── poll-loop health reporting ───────────────────────────────────────
+def test_track_cycle_counts_overruns_and_reports_on_the_health_period(caplog):
+    """A poll cycle slower than the period is an overrun; the digest lands once per window."""
+    b = _make_board(poll_period=0.02, health_period=0.0)   # report on every cycle after the first
+    b.comm_rate = 41.0
+
+    b._track_cycle(0.010)                  # inside the period — first call arms the window
+    b._track_cycle(0.050)                  # overrun; window is due, so it reports and resets
+    assert (b._cycles, b._overruns, b._worst_cycle) == (0, 0, 0.0)
+
+    stats = b.connection.stats
+    stats.commands, stats.ok, stats.stray_lines = 10, 9, 3
+    stats.last_stray = "DHCP: discovering (PHY 'auto-neg all')..."
+    b._cycles, b._overruns, b._worst_cycle = 100, 40, 0.051
+
+    with caplog.at_level("INFO"):
+        b._report_health(30.0)
+    text = caplog.text
+    assert "Link health" in text and "30s on /dev/serial0" in text
+    assert "41.0 Hz achieved vs 2 Hz target (backed off, link down)" in text
+    assert "overruns=40 (40%)" in text and "worst_cycle=51 ms" in text
+    assert "stray=3" in text
+    assert "DHCP: discovering" in text     # the actual offending line, not just a count
+
+
+def test_report_health_tolerates_a_client_without_stats():
+    b = _make_board()
+    b.connection = object()                # a stub link, as an integration test might inject
+    b._report_health(30.0)                 # must not raise
+
+
+def test_link_stats_snapshot_includes_the_poll_loop_overrun_rate():
+    b = _make_board()
+    b._cycles, b._overruns = 200, 50
+    snap = b.link_stats()
+    assert snap["overrun_pct"] == 25.0
+    assert "rtt_p95_ms" in snap and snap["commands"] == 0
+
+
+def test_reconfigure_clears_health_counters():
+    b = _make_board()
+    b._cycles, b._overruns, b._worst_cycle, b._last_health_t = 10, 5, 0.9, 123.0
+    asyncio.run(_reconfigure(b))
+    assert (b._cycles, b._overruns, b._worst_cycle, b._last_health_t) == (0, 0, 0.0, 0.0)
+
+
+async def _reconfigure(b):
+    # reconfigure() spawns the old client's close() on the running loop, so it needs one.
+    b.reconfigure(transport="tcp", host="10.0.0.9", tcp_port=5555)
+    await asyncio.sleep(0)
+
+
+# ── down-link backoff ────────────────────────────────────────────────
+def test_poll_backs_off_while_the_link_is_down_and_restores_on_reconnect(caplog):
+    b = _make_board(poll_period=0.02, down_poll_period=0.5)
+
+    with caplog.at_level("INFO"):
+        assert b._current_period() == 0.5          # board starts disconnected
+        assert b._current_period() == 0.5          # ...and the notice is logged only once
+    assert caplog.text.count("Link idle") == 1
+
+    b.connected = True
+    assert b._current_period() == 0.02             # full rate restored
+
+    b.connected = False
+    assert b._current_period() == 0.5              # and it backs off again
+
+
+def test_backoff_never_polls_faster_than_the_configured_period():
+    """A deliberately slow poll rate must not be sped up by the down-link fallback."""
+    b = _make_board(poll_period=2.0, down_poll_period=0.5)
+    assert b._current_period() == 2.0
+
+
+def test_overruns_are_measured_against_the_period_actually_targeted():
+    """While backed off, a 250 ms cycle is on time — it must not read as an overrun."""
+    b = _make_board(poll_period=0.02, down_poll_period=0.5)
+    b._last_health_t = time.monotonic()            # keep the window open
+    b._track_cycle(0.25, b._current_period())
+    assert b._overruns == 0 and b._cycles == 1
