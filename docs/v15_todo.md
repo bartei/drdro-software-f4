@@ -33,9 +33,9 @@
 - [x] In-app build smoke: all screens instantiate, transport=serial default
 
 ## Phase 4 — responsive home bars
-- [ ] Port `coordbar.kv` + `dro_coordbar.kv` responsive caps
-- [ ] Port `dro_mode_layout.py` + `index_mode_layout.py` spacer
-- [ ] KV parse/instantiate with 1 and 5 coordbars
+- [x] Port `coordbar.kv` + `dro_coordbar.kv` responsive caps
+- [x] Port `dro_mode_layout.py` + `index_mode_layout.py` spacer
+- [x] Verify grow/shrink + spacer/servobar pinning (in-app smoke; mock-GL can't build widgets in pytest)
 
 ## Phase 5 — verification & back-compat guards
 - [ ] Full `uv run pytest` green

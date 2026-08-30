@@ -1,9 +1,14 @@
 #: import AutoSizeButton dro.components.widgets.auto_size_button
 #: import PositioningAid dro.components.widgets.positioning_aid
+#: import Window kivy.core.window.Window
 
 <DroCoordBar>:
   orientation: "horizontal"
   size_hint_y: 1
+  # Cap the row height to a fraction of the screen so a page with few bars doesn't stretch
+  # each row (and its height-derived fonts) out of proportion; equal-share sizing still
+  # applies while rows stay under the cap (many-bar case unchanged). Proportional = responsive.
+  size_hint_max_y: Window.height * 0.25
   Button:
     width: 96
     size_hint_x: None
@@ -84,7 +89,9 @@
     font_size: 24
     font_style: "bold"
     background_color: [0.5, 0.5, 0.5, 1]
-    width: self.height
+    # Square with the row height, but cap the width to a fraction of the screen width so a
+    # tall row can't blow the button up and eat the readout's horizontal space (responsive).
+    width: min(self.height, Window.width * 0.15)
     size_hint_x: None
     on_press: root.on_zero_press()
     on_release: root.on_zero_release()
