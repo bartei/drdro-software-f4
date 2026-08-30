@@ -101,13 +101,29 @@ class MainApp(App):
     def get_spindle_axis(self):
         return self.board.get_spindle_axis()
 
+    def _sync_input_aliases(self, board, inputs):
+        """Mirror the board's (possibly resized) input list onto the KV-facing aliases."""
+        self.inputs = list(inputs)
+        self.scales = list(inputs)
+
     def build(self):
         self.formats = FormatsDispatcher(id_override="0")
+        # Connection config (see the Connection setup page). Defaults to RS-485 serial so an
+        # existing v1.0 install with no `transport` key keeps opening its serial port; the v1.5
+        # board's Ethernet/TCP link is selected on the Connection page. A blank TCP host stays
+        # disconnected until the user sets the board IP.
+        transport = config.getdefault("device", "transport", "serial")
         serial_port = config.getdefault("device", "serial_port", "/dev/serial0")
         baudrate = int(config.getdefault("device", "baudrate", 115200))
+        host = config.getdefault("device", "host", "")
+        tcp_port = int(config.getdefault("device", "tcp_port", 5555))
+        # Ethernet has the headroom for a faster status poll than RS-485 (configurable).
+        default_hz = 100 if transport == "tcp" else 50
+        refresh_hz = float(config.getdefault("device", "refresh_hz", default_hz))
         self.board = Board(
             formats=self.formats, offset_provider=self,
-            port=serial_port, baudrate=baudrate,
+            transport=transport, port=serial_port, baudrate=baudrate,
+            host=host, tcp_port=tcp_port, poll_period=1.0 / max(1.0, refresh_hz),
         )
 
         # Backward compat aliases — most KV files use app.servo / app.inputs / app.axes
@@ -115,6 +131,9 @@ class MainApp(App):
         self.inputs = list(self.board.inputs)
         self.scales = list(self.board.inputs)  # backward compat alias
         self.axes = list(self.board.axes)
+        # Keep the aliases in sync when the board resizes its input list to match the
+        # connected board's reported scale count (Board._apply_scale_count).
+        self.board.bind(inputs=self._sync_input_aliases)
 
         self.els = ElsDispatcher(id_override="0")
 

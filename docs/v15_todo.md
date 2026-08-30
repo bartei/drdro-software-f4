@@ -24,12 +24,13 @@
 - [x] Unit tests: dynamic scale count 4/5/absent
 
 ## Phase 3 — app wiring & connection UI
-- [ ] `app.py`: `[device]` transport block, default serial (+ migrate absent-key)
-- [ ] `app.py`: `_sync_input_aliases` + `board.bind(inputs=…)`
-- [ ] `manager.py`: register `ConnectionScreen`
-- [ ] Port `connection_screen.py` + `.kv` (new)
-- [ ] `setup_screen.kv`: add "Connection" button (keep "Firmware")
-- [ ] Unit test: fresh-config resolves to serial
+- [x] `app.py`: `[device]` transport block, default serial (+ migrate absent-key)
+- [x] `app.py`: `_sync_input_aliases` + `board.bind(inputs=…)`
+- [x] `manager.py`: register `ConnectionScreen`
+- [x] Port `connection_screen.py` + `.kv` (new)
+- [x] `setup_screen.kv`: add "Connection" button (keep "Firmware")
+- [x] Unit test: fresh-config resolves to serial
+- [x] In-app build smoke: all screens instantiate, transport=serial default
 
 ## Phase 4 — responsive home bars
 - [ ] Port `coordbar.kv` + `dro_coordbar.kv` responsive caps
