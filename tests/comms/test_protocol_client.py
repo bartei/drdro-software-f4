@@ -318,3 +318,168 @@ def test_link_goes_down_after_max_errors():
         assert c.connected is False
 
     _run(_with_client(good, go2))
+
+
+# ── shared line: unsolicited firmware chatter ────────────────────────
+# The firmware's CLI UART is not exclusively ours — ETH/DHCP/PHY status lines are printed
+# asynchronously and can land inside a response frame. They are not covered by the frame's
+# checksum, so the reader has to split them out rather than let them fail an otherwise
+# perfect frame (that failure is what used to trigger the multi-second retry stall).
+
+class ChattySerial(FakeSerial):
+    """FakeSerial that injects firmware log lines into the response stream.
+
+    ``noise`` lines are spliced in *after* the first body line of every reply, which is the
+    worst case: mid-frame, where they corrupt the checksummed region if admitted.
+    """
+
+    def __init__(self, responder, noise: list[str], in_waiting: bool = False):
+        super().__init__(responder)
+        self.noise = noise
+        self._expose_in_waiting = in_waiting
+
+    def _respond(self, line):
+        before = len(self._inq)
+        super()._respond(line)
+        if len(self._inq) == before:
+            return                                     # no reply (dead-link simulation)
+        frame = self._inq[before:].decode("ascii")
+        head, sep, rest = frame.partition("\n")
+        noise = "".join(n + "\r\n" for n in self.noise)
+        self._inq = self._inq[:before] + (head + sep + noise + rest).encode("ascii")
+
+    @property
+    def in_waiting(self):
+        # Only advertised when asked for, so both the byte-at-a-time and the burst-read
+        # paths through _read_frame get exercised by the suite.
+        if not self._expose_in_waiting:
+            raise AttributeError("in_waiting")
+        return len(self._inq)
+
+
+_CHATTER = [
+    "DHCP: discovering (PHY 'auto-neg all')...",
+    "PHY: mode '100M full' -> PHYCFGR 0xDF (link up, 100M, full)",
+    "ETH: link up",
+]
+
+
+@pytest.mark.parametrize("burst", [False, True])
+def test_stray_firmware_lines_do_not_break_the_frame(burst):
+    fake = ChattySerial(_board_responder(), _CHATTER, in_waiting=burst)
+
+    async def go(c):
+        r = await c.command("version", retries=1)
+        # One attempt is enough: the chatter is filtered, so the crc still validates.
+        assert r.crc_ok and r.text("version") == "v0.4.2-test"
+        assert len(fake.requests) == 1
+        assert c.connected is True
+        # ...and the chatter is reported rather than silently swallowed.
+        assert r.stray == _CHATTER
+        assert c.stats.stray_lines == len(_CHATTER)
+        assert c.stats.last_stray == _CHATTER[-1]
+
+    _run(_with_client(fake, go))
+
+
+def test_stray_lines_never_reach_parsed_values():
+    fake = ChattySerial(_board_responder(), _CHATTER)
+
+    async def go(c):
+        r = await c.sta()
+        assert r.crc_ok
+        assert all(":" not in k for k in r.values)
+        assert r.as_ints("scales.pos") == [0, 0, 0, 0]
+
+    _run(_with_client(fake, go))
+
+
+def test_stray_line_before_the_frame_does_not_end_it_early():
+    """A blank line following pre-frame chatter must not terminate an empty frame."""
+    fake = FakeSerial(_board_responder())
+    original = fake._respond
+
+    def respond(line):
+        fake._inq += b"ETH: link up\r\n\r\n"      # chatter + its own blank line, then the reply
+        original(line)
+
+    fake._respond = respond
+
+    async def go(c):
+        r = await c.command("version", retries=1)
+        assert r.crc_ok and r.text("version") == "v0.4.2-test"
+
+    _run(_with_client(fake, go))
+
+
+# ── retry policy ─────────────────────────────────────────────────────
+def test_sta_is_not_retried():
+    """A status poll is re-issued by the next poll, not by a retry that holds the bus."""
+    fake = FakeSerial(lambda line: None)          # never replies
+
+    async def go(c):
+        r = await c.sta(timeout=0.05)
+        assert not r.crc_ok
+        assert len(fake.requests) == 1            # exactly one attempt, no retry storm
+        assert c.stats.timeouts == 1
+        assert c.stats.retries == 0
+
+    _run(_with_client(fake, go))
+
+
+def test_failed_command_does_not_back_off_after_its_last_attempt():
+    """The old loop slept after the final attempt too — dead time on a shared bus."""
+    import time as _time
+
+    fake = FakeSerial(lambda line: None)
+
+    async def go(c):
+        t0 = _time.monotonic()
+        await c.command("version", timeout=0.02, retries=3)
+        elapsed = _time.monotonic() - t0
+        assert len(fake.requests) == 3
+        # 3 timeouts + 2 (not 3) backoffs; generous ceiling, the point is that the trailing
+        # backoff is gone and the backoff itself is no longer 150 ms.
+        assert elapsed < 3 * 0.02 + 3 * 0.05
+        assert c.stats.retries == 2
+
+    _run(_with_client(fake, go))
+
+
+# ── link statistics ──────────────────────────────────────────────────
+def test_link_stats_counts_outcomes_and_round_trips():
+    fake = FakeSerial(_board_responder())
+
+    async def go(c):
+        for _ in range(3):
+            await c.command("version")
+        s = c.stats
+        assert s.commands == 3 and s.ok == 3 and s.failures == 0
+        assert s.rtt_ms["p50"] >= 0.0 and s.rtt_ms["max"] >= s.rtt_ms["min"]
+        snap = s.snapshot()
+        assert snap["commands"] == 3 and snap["stray_lines"] == 0
+        assert "cmds=3" in s.summary()
+
+    _run(_with_client(fake, go))
+
+
+def test_link_stats_separates_timeouts_from_crc_failures():
+    fake = FakeSerial(lambda line: None)
+
+    async def go(c):
+        await c.command("version", timeout=0.02, retries=1)
+        assert c.stats.timeouts == 1 and c.stats.crc_fail == 0 and c.stats.failures == 1
+
+    _run(_with_client(fake, go))
+
+
+def test_link_stats_reset_clears_counters():
+    fake = FakeSerial(_board_responder())
+
+    async def go(c):
+        await c.command("version")
+        assert c.stats.commands == 1
+        c.stats.reset()
+        assert c.stats.commands == 0 and c.stats.rtt_ms["p50"] == 0.0
+
+    _run(_with_client(fake, go))

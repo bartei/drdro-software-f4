@@ -1,5 +1,9 @@
 """Firmware screen — view/select banks, reboot the board, and flash a firmware version
 fetched from GitHub releases over the RS-485 line (YMODEM into the inactive bank, then boot).
+
+The release source follows the board that is actually connected (dro.comms.updater
+.detect_source), so the same screen serves the V1.5 mainboard and the older F411CE
+controller without the user picking a repo — or being able to pick the wrong one.
 """
 import asyncio
 import os
@@ -20,6 +24,7 @@ load_kv(__file__)
 
 class FirmwareScreen(Screen):
     current_version = StringProperty("—")
+    target_board = StringProperty("—")       # which board's firmware repo we're offering
     active_bank_text = StringProperty("—")
     boot_bank = StringProperty("")
     include_prerelease = BooleanProperty(False)
@@ -70,13 +75,32 @@ class FirmwareScreen(Screen):
         if not self.app.board.connected:
             self.current_version = "(offline)"
             self.active_bank_text = "—"
+            self.target_board = "—"
             return
+        # Re-detect on every visit: the board may have been swapped, or this may be the
+        # first connect since the screen was built, and the two boards take different images.
+        self._apply_source(self.updater.refresh_source())
         ver = await self.updater.get_version()
         bank = await self.updater.get_active_bank()
         self.current_version = ver or "—"
         self.active_bank_text = "—" if bank is None else str(bank)
         if bank is not None:
             self.boot_bank = str(bank)
+
+    def _apply_source(self, source):
+        """Show the detected board and drop any version list fetched for a different one."""
+        label = f"{source.label} — {source.repo}"
+        if self.target_board == label:
+            return
+        self.target_board = label
+        if self._releases:
+            # Offering another board's tags here would let the user flash an image that
+            # cannot run on this hardware, so they go rather than linger.
+            self._releases = []
+            self.version_options = []
+            self.selected_tag = ""
+            self._status("Board changed — cleared the version list")
+        log.info("firmware source for the connected board: %s (%s)", source.key, source.repo)
 
     # ── bank selector / reset ────────────────────────────────────────
     def set_bank(self, value: str):
@@ -104,7 +128,7 @@ class FirmwareScreen(Screen):
 
     # ── releases ─────────────────────────────────────────────────────
     def refresh_releases(self):
-        self._status("Fetching releases from GitHub…")
+        self._status(f"Fetching releases from {self.updater.source.repo}…")
         self._spawn(self._refresh_releases())
 
     async def _refresh_releases(self):
@@ -115,7 +139,7 @@ class FirmwareScreen(Screen):
             return
         self._releases = rels
         self.version_options = [r["tag"] for r in rels]
-        self._status(f"Found {len(rels)} release(s)")
+        self._status(f"Found {len(rels)} release(s) for {self.updater.source.label}")
         if rels and not self.selected_tag:
             self.selected_tag = rels[0]["tag"]
 
@@ -146,8 +170,13 @@ class FirmwareScreen(Screen):
             )
             self._status(f"Settings backed up to profile '{backup.stem}'")
 
-            self._status(f"Downloading {rel['tag']} ({rel['size']} bytes)…")
-            tmp = os.path.join(tempfile.gettempdir(), f"drdro-{rel['tag']}.bin")
+            self._status(f"Downloading {rel.get('asset', rel['tag'])} "
+                         f"{rel['tag']} ({rel['size']} bytes)…")
+            # Namespace the download by source: the two repos version independently and can
+            # both ship the same tag, and a stale same-named temp file would then be the other
+            # board's image.
+            tmp = os.path.join(tempfile.gettempdir(),
+                               f"drdro-{rel.get('source', 'fw')}-{rel['tag']}.bin")
             await self.updater.download_asset(rel["url"], tmp, on_progress=self._set_progress)
             self._set_progress(0.0)
             self._status("Flashing over RS-485…")

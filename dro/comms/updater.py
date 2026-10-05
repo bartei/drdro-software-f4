@@ -8,16 +8,18 @@ ported from tools/dro_update.py):
   4. (boot) `bank <bank>`   -> select it as the active bank (persisted)
   5. (boot) `boot`          -> copy active bank -> Exec, jump to the new app
 
-Available versions are fetched from the firmware repo's GitHub releases (the `drdro-app.bin`
-asset). The flash flow takes exclusive ownership of the serial bus: the caller pauses the
-board poll loop (Board.pause) and the whole sequence runs under the client's bus lock via
-ProtocolClient.run_blocking. Progress/status are reported through callbacks (the UI wraps
-them with @mainthread).
+Available versions are fetched from GitHub releases. **Which** repo and asset depends on the
+board that is actually connected — see :class:`FirmwareSource` — so one Firmware screen serves
+both the V1.5 mainboard and the older F411CE controller. The flash flow takes exclusive
+ownership of the serial bus: the caller pauses the board poll loop (Board.pause) and the whole
+sequence runs under the client's bus lock via ProtocolClient.run_blocking. Progress/status are
+reported through callbacks (the UI wraps them with @mainthread).
 """
 from __future__ import annotations
 
 import ssl
 import time
+from dataclasses import dataclass
 
 import aiohttp
 import certifi
@@ -28,9 +30,103 @@ from dro.comms.ymodem import ymodem_send
 # Python doesn't pick up the system CA store automatically).
 _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
-GITHUB_REPO = "bartei/drdro-firmware-f4"
-APP_ASSET = "drdro-app.bin"
-RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
+
+@dataclass(frozen=True)
+class FirmwareSource:
+    """Where a given board's firmware comes from.
+
+    The two boards run different images from different repos, and pushing one to the other
+    bricks it — the firmware projects deliberately give their release assets distinct names
+    for exactly this reason ("this board's images must never be pushed to the old board by an
+    updater matching on name", drdro-mainboard tools/build-release.sh). :meth:`matches` is the
+    host side of that contract: it is the only thing that decides which asset gets flashed.
+    """
+
+    key: str                       # stable id, used in logs/tests
+    label: str                     # shown on the Firmware screen
+    repo: str                      # GitHub "owner/name"
+    asset: str                     # exact release asset filename
+    allow_loose: bool = False      # accept a differently-named app .bin (legacy releases)
+    reject: tuple[str, ...] = ()   # substrings that disqualify an asset outright
+
+    @property
+    def releases_url(self) -> str:
+        return f"https://api.github.com/repos/{self.repo}/releases"
+
+    def matches(self, name: str) -> bool:
+        """True when `name` is this board's application image.
+
+        Exact name always. The loose form — any `.bin` describing itself as an app — exists
+        only to keep releases that predate the current naming reachable, so it is opt-in per
+        source and still refuses anything carrying another board's marker.
+        """
+        low = name.lower()
+        if any(r in low for r in self.reject):
+            return False
+        if name == self.asset:
+            return True
+        return self.allow_loose and low.endswith(".bin") and "app" in low
+
+
+# The V1.5 mainboard: STM32F411RET6, W5500 Ethernet, `net.*` in the protocol registry.
+MAINBOARD_V15 = FirmwareSource(
+    key="mainboard-v15",
+    label="Mainboard V1.5",
+    repo="bartei/drdro-mainboard",
+    asset="drdro-mainboard-app.bin",
+    # Every release of this board has carried the current asset name, so there is no legacy
+    # naming to accommodate and no reason to accept anything but the exact file.
+    allow_loose=False,
+)
+
+# The original controller: STM32F411CEU6, RS-485 only. Its assets are unprefixed, so the
+# mainboard's images have to be excluded explicitly or the loose match would accept them.
+LEGACY_F4 = FirmwareSource(
+    key="f4",
+    label="Controller (F411CE)",
+    repo="bartei/drdro-firmware-f4",
+    asset="drdro-app.bin",
+    allow_loose=True,
+    reject=("mainboard", "bootloader", "factory"),
+)
+
+FIRMWARE_SOURCES = (MAINBOARD_V15, LEGACY_F4)
+
+# Protocol variable that exists only on the V1.5 mainboard. `net.*` is backed by the W5500,
+# which the older board does not have at all, so this cannot be backported away — unlike a
+# version number, which both boards have and which their release lines number independently.
+BOARD_MARKER = "net.mac"
+
+
+def detect_source(board) -> FirmwareSource:
+    """Pick the firmware source for the connected board.
+
+    Reads the `settings` snapshot the Board already caches on connect, so identifying the
+    board costs no extra round trip. An unknown/offline board falls back to the legacy
+    controller: that is the older, more widely deployed hardware, and its `reject` list means
+    a wrong guess can still never offer a mainboard image.
+    """
+    try:
+        marker = board.cached(BOARD_MARKER)
+    except Exception:                       # noqa: BLE001 — detection must never break the UI
+        marker = None
+    # Presence, not value. The old board has no `net.*` registry at all, so the key is simply
+    # absent from its settings dump and `cached` returns None; a V1.5 board always returns
+    # *something*, but not necessarily something meaningful — a factory-flashed board reports
+    # net.mac=00:00:00:00:00:00 until one is assigned. Testing truthiness would read a
+    # degenerate value as "old board" and offer an image that cannot run on this hardware,
+    # which is the one mistake this function must never make.
+    return MAINBOARD_V15 if marker is not None else LEGACY_F4
+
+
+def select_asset(assets: list[dict], source: FirmwareSource) -> dict | None:
+    """Pick the application image for `source` out of one release's asset list.
+
+    Exact filename wins; :meth:`FirmwareSource.matches` decides the rest and is what keeps
+    another board's image from ever being selected.
+    """
+    return (next((a for a in assets if a.get("name") == source.asset), None)
+            or next((a for a in assets if source.matches(a.get("name", ""))), None))
 
 
 class UpdaterError(Exception):
@@ -104,9 +200,27 @@ def _enter_bootloader(ser, status):
 
 
 class FirmwareUpdater:
-    def __init__(self, board):
+    def __init__(self, board, source: FirmwareSource | None = None):
         self.board = board
         self.client = board.connection
+        # Resolved lazily: at construction the board may not have connected yet, so its
+        # settings snapshot — where the marker lives — does not exist. Pass `source`
+        # explicitly to pin it (tests, or a deliberate override).
+        self._pinned = source
+        self._source: FirmwareSource | None = source
+
+    @property
+    def source(self) -> FirmwareSource:
+        """The connected board's firmware source, detected on first use and then cached."""
+        if self._source is None:
+            self._source = detect_source(self.board)
+        return self._source
+
+    def refresh_source(self) -> FirmwareSource:
+        """Re-detect after a (re)connect — the board may be a different one entirely."""
+        if self._pinned is None:
+            self._source = None
+        return self.source
 
     # ---- framed control commands (app CLI) ----
     async def get_version(self) -> str | None:
@@ -131,8 +245,10 @@ class FirmwareUpdater:
 
     # ---- GitHub releases ----
     async def list_releases(self, include_prerelease: bool = False) -> list[dict]:
+        """Releases from the connected board's own firmware repo, newest first."""
+        src = self.source
         async with aiohttp.ClientSession() as s:
-            async with s.get(RELEASES_URL, ssl=_SSL_CTX,
+            async with s.get(src.releases_url, ssl=_SSL_CTX,
                              headers={"Accept": "application/vnd.github+json"}) as r:
                 r.raise_for_status()
                 data = await r.json()
@@ -140,11 +256,7 @@ class FirmwareUpdater:
         for rel in data:
             if rel.get("prerelease") and not include_prerelease:
                 continue
-            assets = rel.get("assets", [])
-            asset = next((a for a in assets if a["name"] == APP_ASSET), None)
-            if asset is None:
-                asset = next((a for a in assets
-                              if a["name"].endswith(".bin") and "app" in a["name"].lower()), None)
+            asset = select_asset(rel.get("assets", []), src)
             if asset is None:
                 continue
             out.append({
@@ -153,6 +265,8 @@ class FirmwareUpdater:
                 "prerelease": bool(rel.get("prerelease")),
                 "url": asset["browser_download_url"],
                 "size": asset["size"],
+                "source": src.key,
+                "asset": asset["name"],
             })
         return out
 

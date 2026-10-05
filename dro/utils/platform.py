@@ -1,9 +1,43 @@
+import functools
 import re
+import shutil
 import subprocess
 
 from kivy.logger import Logger
 
 log = Logger.getChild(__name__)
+
+
+@functools.lru_cache(maxsize=1)
+def network_manager_available() -> bool:
+    """Check that nmcli is installed and the NetworkManager daemon answers.
+
+    The Pi image always ships NetworkManager, but development hosts (WSL2, CI, desktops
+    that use systemd-networkd) may have no nmcli binary at all, or the binary with the
+    daemon stopped. Every nmcli call shells out, so without this probe the network screen
+    raises while the widget tree is being built and takes the whole app down at startup.
+
+    Cached because it cannot change without a restart on the target, and callers sit on
+    the once-per-second status path.
+    """
+    if shutil.which("nmcli") is None:
+        log.info("nmcli not found, network configuration disabled")
+        return False
+
+    try:
+        result = subprocess.run(
+            ["nmcli", "-t", "general", "status"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        log.error(f"Failed to probe NetworkManager: {e}")
+        return False
+
+    if result.returncode != 0:
+        log.info(f"NetworkManager not running, network configuration disabled: {result.stderr.strip()}")
+        return False
+
+    return True
 
 
 def is_raspberry_pi() -> bool:

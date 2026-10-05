@@ -73,6 +73,15 @@
         # ── Install from GitHub ─────────────────────────────────
         TitleItem:
           name: "Install from GitHub"
+        TitleItem:
+          name: "Detected board / firmware source"
+        TextInput:
+          size_hint_y: None
+          height: 60
+          readonly: True
+          multiline: True
+          font_size: app.formats.font_size
+          text: root.target_board
         ButtonItem:
           height: 60
           name: "Refresh available versions"

@@ -9,6 +9,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.screenmanager import Screen
 
 from dro.utils.kv_loader import load_kv
+from dro.utils.platform import network_manager_available
 
 nmcli.disable_use_sudo()
 
@@ -36,10 +37,21 @@ class NetworkScreen(Screen):
 
     status_text = StringProperty("")
     wifi_enabled = BooleanProperty(False)
+    nm_available = BooleanProperty(True)
 
     def __init__(self, **kv):
         super().__init__(**kv)
         self.ids['grid_layout'].bind(minimum_height=self.ids['grid_layout'].setter('height'))
+        self.status_update_task = None
+
+        self.nm_available = network_manager_available()
+        if not self.nm_available:
+            # Development hosts (WSL2, CI) have no NetworkManager. Leave the screen inert
+            # and `lock` set so the editable items stay disabled, rather than raising out
+            # of the widget tree and killing app startup.
+            self.log("NetworkManager is unavailable on this host, network settings are read-only")
+            return
+
         self.wifi_enabled = nmcli.radio().wifi
 
         Clock.schedule_once(lambda dt: asyncio.ensure_future(self.refresh()))
@@ -50,6 +62,8 @@ class NetworkScreen(Screen):
         self.status_text += f"{message}\n"
 
     async def status_update(self):
+        if not self.nm_available:
+            return
         if self.device != "":
             data = await asyncio.to_thread(nmcli.device.show, self.device)
             new_state = data.get("GENERAL.STATE")
@@ -59,6 +73,9 @@ class NetworkScreen(Screen):
 
     async def refresh(self):
         log.debug("Refresh properties invoked")
+
+        if not self.nm_available:
+            return
 
         # Scan Devices
         all_devices = await asyncio.to_thread(nmcli.device)
@@ -102,6 +119,10 @@ class NetworkScreen(Screen):
     async def connect(self):
         self.log("Request Wifi Connection")
 
+        if not self.nm_available:
+            self.log("NetworkManager is unavailable, cannot apply the connection")
+            return
+
         connections_dict = await asyncio.to_thread(nmcli.connection)
         if self.connection in [item.name for item in connections_dict]:
             connection = self.connection
@@ -131,6 +152,8 @@ class NetworkScreen(Screen):
                 self.log(f"Unable to connect: {str(e)}")
 
     def on_wifi_enabled(self, instance, value):
+        if not self.nm_available:
+            return
         if self.wifi_enabled:
             self.log("Enable Wifi Connections")
             nmcli.radio.wifi_on()
@@ -149,4 +172,5 @@ class NetworkScreen(Screen):
 
     def on_dismiss(self):
         log.debug("Dismiss signal received, stopping status_update_task")
-        self.status_update_task.cancel()
+        if self.status_update_task is not None:
+            self.status_update_task.cancel()

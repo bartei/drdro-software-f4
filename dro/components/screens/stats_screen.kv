@@ -43,6 +43,32 @@
           height: 60
           name: "Comm errors (total)"
           value: root.errors
+        ButtonItem:
+          height: 60
+          name: "Round trip p50/p95/max"
+          value: root.rtt
+        ButtonItem:
+          height: 60
+          name: "Stray firmware lines"
+          value: root.stray
+
+        TitleItem:
+          name: "Frame failures"
+        TextInput:
+          size_hint_y: None
+          height: 90
+          readonly: True
+          multiline: True
+          text: root.failures
+
+        TitleItem:
+          name: "Last stray line"
+        TextInput:
+          size_hint_y: None
+          height: 120
+          readonly: True
+          multiline: True
+          text: root.last_stray
 
         TitleItem:
           name: "Rates"

@@ -2,6 +2,73 @@
 
 <!-- version list -->
 
+## v1.8.0-beta.3 (2026-08-30)
+
+### Bug Fixes
+
+- **comms**: Resync frames around unsolicited firmware output
+  ([`1b71003`](https://github.com/bartei/drdro-software-f4/commit/1b71003a960f9df116d3f93d33bdc98700786d6b))
+
+### Features
+
+- **firmware**: Select the release source from the connected board
+  ([`fa615c8`](https://github.com/bartei/drdro-software-f4/commit/fa615c8b0563bad316110033f62a845a6e86929a))
+
+- **stats**: Show link health on the Stats screen
+  ([`9bcedd8`](https://github.com/bartei/drdro-software-f4/commit/9bcedd87ef593734cbd5b973be083f07523eee94))
+
+
+## v1.8.0-beta.2 (2026-08-30)
+
+### Bug Fixes
+
+- Try to make tests work again
+  ([`9cb0cce`](https://github.com/bartei/drdro-software-f4/commit/9cb0cceaab7d8661ce38c51984682a3f32afa20d))
+
+- **network**: Degrade gracefully when nmcli is unavailable
+  ([`31a0444`](https://github.com/bartei/drdro-software-f4/commit/31a0444f51eae7a9f1ca29443fcb18a958289866))
+
+### Continuous Integration
+
+- Skip test gate on dev while headless-runner failure is investigated
+  ([`9c699cc`](https://github.com/bartei/drdro-software-f4/commit/9c699cc90802b5701e0b568debe5e589fc75d84b))
+
+### Documentation
+
+- **v15**: Design + phased todo for v1.5 board integration
+  ([`ee577e6`](https://github.com/bartei/drdro-software-f4/commit/ee577e66114fadbea232566c919b5bd7649a9d0b))
+
+- **v15**: Mark phases 1-5 complete (bench gate remains)
+  ([`419bafd`](https://github.com/bartei/drdro-software-f4/commit/419bafd91bd89e9815c813ab7b96b8fabd3d7166))
+
+### Features
+
+- **board**: Board-selected transport, live reconfigure, dynamic scale count
+  ([`6081f3c`](https://github.com/bartei/drdro-software-f4/commit/6081f3cdee3d5473396701c48c4a9e3d97474691))
+
+- **comms**: Add TCP transport and board discovery for v1.5
+  ([`6907b0a`](https://github.com/bartei/drdro-software-f4/commit/6907b0ab65b0613162f2b27ce277b68ed09e09c5))
+
+- **home**: Responsive coordbar sizing for variable axis count
+  ([`2421fb2`](https://github.com/bartei/drdro-software-f4/commit/2421fb2b08648980cf4017dea40044afe830cda4))
+
+- **ui**: Add Connection setup screen for serial/TCP board link
+  ([`8d4a912`](https://github.com/bartei/drdro-software-f4/commit/8d4a91293013d9d65601303cbcd2187e6249ca65))
+
+
+## v1.8.0-beta.1 (2026-08-17)
+
+### Chores
+
+- Drop RESUME.md
+  ([`c6fc53d`](https://github.com/bartei/drdro-software-f4/commit/c6fc53d9cad17e605ce4ed60530e1ef98a0abb95))
+
+### Features
+
+- **els**: Select left- or right-hand thread direction
+  ([`fa8c4a9`](https://github.com/bartei/drdro-software-f4/commit/fa8c4a9a213ab0a0bfc7faed9d90ee5658242905))
+
+
 ## v1.7.2 (2026-08-22)
 
 ### Bug Fixes
@@ -16,6 +83,14 @@
 
 - **comms**: Tolerate line noise in received frames
   ([`96050a5`](https://github.com/bartei/drdro-software-f4/commit/96050a53ef62fa787b7c18db08eb5283e78fb6f7))
+
+
+## v1.7.1-beta.1 (2026-07-25)
+
+### Bug Fixes
+
+- **network**: Degrade gracefully when NetworkManager is absent
+  ([`45a9474`](https://github.com/bartei/drdro-software-f4/commit/45a9474c44084fbb3bea4064771f1e6a1c16ea0b))
 
 ### Chores
 

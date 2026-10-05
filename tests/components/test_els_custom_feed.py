@@ -27,12 +27,20 @@ class _App:
 
 
 class _FakeElsBar:
+    # set_custom_feed applies the ratio through _push_feed_ratio, which signs it by the
+    # selected hand — borrow the real one. Direction coverage lives in
+    # test_els_feed_direction; these cases stay on the right-hand default.
+    direction_sign = ElsBar.direction_sign
+    _push_feed_ratio = ElsBar._push_feed_ratio
+
     def __init__(self, axis, index=0):
         self.app = _App(axis)
         self.mode_name = ":("
         self.current_feeds_table = []
         self.current_feeds_index = index
         self.feed_name = ":("
+        self.feed_direction = 1
+        self._feed_ratio = None
 
 
 def test_custom_feed_ratio_pushed_to_spindle():

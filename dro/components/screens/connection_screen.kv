@@ -1,0 +1,81 @@
+#: import ScreenHeader dro.components.widgets.screen_header
+#: import TitleItem dro.components.widgets.title_item
+#: import DropDownItem dro.components.widgets.dropdown_item
+#: import StringItem dro.components.widgets.string_item
+#: import NumberItem dro.components.widgets.number_item
+#: import ButtonItem dro.components.widgets.button_item
+
+<ConnectionScreen>:
+  BoxLayout:
+    orientation: "vertical"
+    padding: 10
+    ScreenHeader:
+      text: "Connection"
+    ScrollView:
+      GridLayout:
+        cols: 1
+        size_hint_y: None
+        height: self.minimum_height
+
+        TitleItem:
+          name: "Board Link"
+        DropDownItem:
+          id: transport_dd
+          name: "Transport"
+          on_value: root.on_transport_selected(self.value)
+
+        TitleItem:
+          name: "Discover"
+        ButtonItem:
+          name: "Scan Network"
+          value: "Scanning…" if root.scanning else "Scan"
+          on_release: root.start_scan()
+        DropDownItem:
+          id: devices_dd
+          name: "Found Boards"
+          on_value: root.on_device_selected(self.value)
+
+        TitleItem:
+          name: "Ethernet (TCP)"
+        StringItem:
+          name: "Board IP"
+          value: root.host
+          disabled: root.transport != "tcp"
+          on_value: root.host = self.value
+        NumberItem:
+          name: "TCP Port"
+          integer: True
+          value: root.tcp_port
+          on_value: root.tcp_port = self.value
+
+        TitleItem:
+          name: "RS-485 (Serial)"
+        StringItem:
+          name: "Serial Port"
+          value: root.serial_port
+          disabled: root.transport != "serial"
+          on_value: root.serial_port = self.value
+        NumberItem:
+          name: "Baudrate"
+          integer: True
+          value: root.baudrate
+          on_value: root.baudrate = self.value
+
+        TitleItem:
+          name: "Polling"
+        NumberItem:
+          name: "Refresh rate (Hz)"
+          integer: True
+          value: root.refresh_hz
+          on_value: root.refresh_hz = self.value
+
+        TitleItem:
+          name: "Apply"
+        ButtonItem:
+          name: "Apply & Reconnect"
+          value: "Apply"
+          on_release: root.apply()
+        StringItem:
+          name: "Status"
+          value: root.status_text
+          disabled: True

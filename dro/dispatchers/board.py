@@ -20,11 +20,13 @@ import asyncio
 import os
 import time
 
+import serial
+
 from kivy.clock import Clock
 from kivy.event import EventDispatcher
 from kivy.properties import NumericProperty, BooleanProperty, ObjectProperty, ListProperty, StringProperty
 
-from dro.comms.protocol_client import ProtocolClient, Response
+from dro.comms.protocol_client import ProtocolClient, ProtocolError, Response
 from dro.dispatchers.axis import AxisDispatcher
 from dro.dispatchers.axis_transform import AxisTransform
 from dro.dispatchers.input import InputDispatcher
@@ -57,6 +59,7 @@ def map_sta(resp: Response) -> dict:
 class Board(EventDispatcher):
     connected = BooleanProperty(False)
     update_tick = NumericProperty(0)
+    scale_count = NumericProperty(SCALES_COUNT)      # inputs the connected board reports (scales.count)
     firmware_version = StringProperty("")            # cached on (re)connect (Stats screen, banner)
     firmware_update_required = BooleanProperty(False)  # firmware older than COMPANION_FW_VERSION
     blink = BooleanProperty(False)
@@ -64,15 +67,28 @@ class Board(EventDispatcher):
     inputs = ListProperty()
     axes = ListProperty()
 
-    def __init__(self, formats, offset_provider, *, port="/dev/serial0", baudrate=115200,
-                 poll_period=1.0 / 50, save_debounce=0.75, **kv):
+    def __init__(self, formats, offset_provider, *, transport="serial",
+                 port="/dev/serial0", baudrate=115200, host="", tcp_port=5555,
+                 poll_period=1.0 / 50, save_debounce=0.75, health_period=30.0,
+                 down_poll_period=0.5, **kv):
         super().__init__(**kv)
         self.formats = formats
         self.offset_provider = offset_provider
         self.fast_data_values = dict()
 
-        self.connection = ProtocolClient(port, baudrate=baudrate)
+        # One line protocol, two pipes: RS-485 (pyserial) or Ethernet (TCP). A blank tcp host
+        # stays disconnected until the user sets the board IP in the Connection setup page.
+        if transport == "tcp":
+            self.connection = ProtocolClient(host=host or "", tcp_port=tcp_port)
+        else:
+            self.connection = ProtocolClient(port, baudrate=baudrate)
         self._poll_period = poll_period
+        # Cadence to fall back to once the link is declared down. Polling a board that isn't
+        # answering at the full 50 Hz is pure bus pressure: it can't help us reconnect (one
+        # good frame does that, and it will arrive just as well at 2 Hz), and if the board is
+        # wedged with an unserviced UART, continuing to stuff its RX buffer is the opposite of
+        # helpful. Backing off also stops a disconnected board from filling the log.
+        self._down_poll_period = down_poll_period
         self._save_debounce = save_debounce
 
         self._settings: Response | None = None        # last `settings` snapshot (cache)
@@ -90,6 +106,17 @@ class Board(EventDispatcher):
         self._save_task: asyncio.Task | None = None
         self._tasks: set[asyncio.Task] = set()
 
+        # Poll-loop health. `sta` costs ~14 ms on RS-485 at 115200 (a 117-byte frame is 10 ms
+        # of pure wire time), so a 50 Hz poll runs at ~70% duty with only ~6 ms of slack — an
+        # overrun is normal noise, a *run* of them is the thing worth seeing. Tracked here and
+        # folded into the periodic health line together with the client's link counters.
+        self._health_period = health_period
+        self._last_health_t = 0.0
+        self._cycles = 0                               # poll cycles since the last health line
+        self._overruns = 0                             # cycles that missed the poll deadline
+        self._worst_cycle = 0.0                        # slowest cycle since the last health line
+        self._backed_off = False                       # currently polling at the down-link rate
+
         self.servo = ServoDispatcher(board=self, formats=formats, id_override="0")
         for i in range(SCALES_COUNT):
             self.inputs.append(InputDispatcher(
@@ -106,19 +133,101 @@ class Board(EventDispatcher):
 
     def start(self, *, period: float | None = None) -> None:
         """Start the poll loop on the running asyncio loop (call after the loop is up)."""
+        if period:
+            self._poll_period = period
         if self._running:
             return
         self._running = True
-        self._spawn(self.run(period or self._poll_period))
+        self._spawn(self.run())
 
-    async def run(self, period: float) -> None:
-        await self.open()
+    def set_poll_period(self, period: float) -> None:
+        """Live-adjust the status poll period (Hz). Picked up on the next loop iteration."""
+        self._poll_period = max(1e-3, period)
+
+    async def run(self) -> None:
         while self._running:
             t0 = time.monotonic()
-            await self.poll_once()
-            # Rate-limit to `period` by sleeping only the remainder after the sta round-trip,
-            # rather than adding a fixed sleep on top of it (which capped us well below target).
-            await asyncio.sleep(max(0.0, period - (time.monotonic() - t0)))
+            try:
+                # Open lazily and keep retrying: the port may be absent at startup (board
+                # unplugged, or no serial port at all on a dev host) and appear later.
+                if not self.connection.is_open:
+                    await self.open()
+                await self.poll_once()
+            except (serial.SerialException, ProtocolError, OSError) as e:
+                self._handle_link_error(e)
+                await asyncio.sleep(1.0)      # back off before retrying the port open
+                continue
+            # Rate-limit to the poll period by sleeping only the remainder after the sta
+            # round-trip (read live so the Connection page can retune the rate on the fly).
+            elapsed = time.monotonic() - t0
+            period = self._current_period()
+            self._track_cycle(elapsed, period)
+            await asyncio.sleep(max(0.0, period - elapsed))
+
+    def _current_period(self) -> float:
+        """Poll period for the next cycle — the configured rate, or the down-link backoff."""
+        if self.connected:
+            if self._backed_off:
+                self._backed_off = False
+            return self._poll_period
+        if not self._backed_off:
+            self._backed_off = True
+            log.info("Link idle: %s is not answering, backing the status poll off to %.1f Hz "
+                     "until it does", self.connection.description, 1.0 / self._down_poll_period)
+        return max(self._poll_period, self._down_poll_period)
+
+    def _track_cycle(self, elapsed: float, period: float | None = None) -> None:
+        """Account one poll cycle against the period it was actually aiming for."""
+        self._cycles += 1
+        self._worst_cycle = max(self._worst_cycle, elapsed)
+        if elapsed > (self._current_period() if period is None else period):
+            self._overruns += 1
+
+        now = time.monotonic()
+        if not self._last_health_t:
+            self._last_health_t = now
+            return
+        if now - self._last_health_t < self._health_period:
+            return
+        self._report_health(now - self._last_health_t)
+        self._last_health_t = now
+        self._cycles = self._overruns = 0
+        self._worst_cycle = 0.0
+
+    def _report_health(self, window: float) -> None:
+        """Log one digest of link + poll-loop health for the window just ended.
+
+        INFO when something was off (failures, stray firmware chatter, or a poll loop that
+        could not keep its period), DEBUG otherwise — so a healthy machine stays quiet but a
+        stutter always leaves a dated, quantified line behind in /var/log/drdro/app.log.
+        """
+        stats = getattr(self.connection, "stats", None)
+        if stats is None:                     # a stubbed client in tests
+            return
+        over_pct = (100.0 * self._overruns / self._cycles) if self._cycles else 0.0
+        target = 1.0 / self._current_period()
+        line = (
+            f"Link health: {window:.0f}s on {self.connection.description}, "
+            f"{self.comm_rate:.1f} Hz achieved vs {target:.0f} Hz target"
+            f"{' (backed off, link down)' if self._backed_off else ''}, "
+            f"cycles={self._cycles} overruns={self._overruns} ({over_pct:.0f}%) "
+            f"worst_cycle={self._worst_cycle * 1000:.0f} ms | {stats.summary()}"
+        )
+        unhealthy = stats.failures or stats.stray_lines or over_pct > 10.0
+        (log.info if unhealthy else log.debug)(line)
+        if stats.last_stray:
+            log.info("Link chatter: most recent unsolicited firmware line was %r",
+                     stats.last_stray)
+
+    def _handle_link_error(self, e: Exception) -> None:
+        """Port open/link failure — stay down and let `run` retry, never kill the poll loop."""
+        if self.connected:
+            log.warning("Board link error, marking disconnected: %s", e)
+        else:
+            log.debug("Board link unavailable (will retry): %s", e)
+        self.connected = False
+        self.comm_rate = 0.0
+        self._last_poll_t = None
 
     def stop(self) -> None:
         self._running = False
@@ -132,6 +241,27 @@ class Board(EventDispatcher):
         self._settings = None
         self.connected = False
         self._paused = False
+
+    def reconfigure(self, *, transport: str, port: str | None = None, baudrate: int | None = None,
+                    host: str | None = None, tcp_port: int | None = None) -> None:
+        """Swap the link to new connection settings without restarting the app.
+
+        The single poll loop reads `self.connection` each pass, so replacing it (and closing the
+        old one) is enough — the loop reopens the new pipe on its next iteration."""
+        old = self.connection
+        if transport == "tcp":
+            self.connection = ProtocolClient(host=host or "", tcp_port=int(tcp_port or 5555))
+        else:
+            self.connection = ProtocolClient(port or "/dev/serial0", baudrate=int(baudrate or 115200))
+        self._settings = None
+        self.connected = False
+        self._paused = False
+        # Health counters describe a link; they must not carry over onto a different target.
+        self._last_health_t = 0.0
+        self._cycles = self._overruns = 0
+        self._worst_cycle = 0.0
+        log.info("Reconfigured board link → %s", self.connection.description)
+        self._spawn(old.close())
 
     async def poll_once(self) -> None:
         """One poll cycle: `sta` → fast_data_values, connection/cache handling, tick bump."""
@@ -187,6 +317,14 @@ class Board(EventDispatcher):
         if r.crc_ok:
             self._settings = r
             log.info("Loaded board settings snapshot (%d vars)", len(r.values))
+            # Size the host's inputs to what this board actually has (scales.count is RO).
+            # v1.0 firmware doesn't know scales.count → n stays None → keep the default 4.
+            n = r.as_int("scales.count")
+            if n is None:
+                cnt = await self.connection.get("scales.count")
+                n = cnt.as_int("scales.count") if cnt.crc_ok else None
+            if n is not None:
+                self._apply_scale_count(n)
         v = await self.connection.command("version")
         if v.crc_ok and v.text("version"):
             self.firmware_version = v.text("version")
@@ -194,6 +332,27 @@ class Board(EventDispatcher):
         if self.firmware_update_required:
             log.warning("Firmware %s is older than the companion version this software "
                         "needs — prompting for an update", self.firmware_version)
+
+    def _apply_scale_count(self, n: int) -> None:
+        """Grow/shrink the InputDispatcher list to the board's reported scale count.
+
+        Mutating the `inputs` ListProperty fires Kivy observers on the main thread (the poll
+        loop runs under async_run in that thread), so app.inputs/app.scales resync via the
+        alias binding set up in MainApp.build(). Axes are left as-is; an axis referencing a
+        now-missing input already guards on len(self.inputs)."""
+        n = max(0, int(n))
+        cur = len(self.inputs)
+        if n == cur:
+            self.scale_count = n
+            return
+        if n > cur:
+            for i in range(cur, n):
+                self.inputs.append(InputDispatcher(board=self, inputIndex=i, id_override=f"{i}"))
+            log.info("Board reports %d scales — grew inputs %d → %d", n, cur, n)
+        else:
+            del self.inputs[n:]
+            log.info("Board reports %d scales — shrank inputs %d → %d", n, cur, n)
+        self.scale_count = n
 
     # ── write / read facade used by the dispatchers ─────────────────
     def write(self, name: str, value, idx: int | None = None) -> None:
@@ -227,6 +386,13 @@ class Board(EventDispatcher):
             log.info("Settings saved to board flash")
         else:
             log.warning("Settings save failed: %s", r.error)
+
+    def link_stats(self) -> dict:
+        """Flat link-health snapshot for the Stats screen (empty if the client has none)."""
+        stats = getattr(self.connection, "stats", None)
+        snap = stats.snapshot() if stats is not None else {}
+        snap["overrun_pct"] = (100.0 * self._overruns / self._cycles) if self._cycles else 0.0
+        return snap
 
     def cached(self, name: str, idx: int | None = None) -> str | None:
         """Read a value from the last `settings` snapshot (synchronous, for the UI thread)."""
